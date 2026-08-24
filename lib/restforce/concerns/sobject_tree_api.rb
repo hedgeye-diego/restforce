@@ -112,10 +112,16 @@ module Restforce
       class TreeBuilder
         attr_reader :root, :records, :depth
 
-        def initialize(root, depth = 1)
+        # reference_ids is shared with every nested builder, because
+        # Salesforce requires each id to be "unique in the context of the
+        # request" - across the whole tree, not per level.
+        def initialize(root, depth = 1, reference_ids = nil)
           @root = root
           @records = []
           @depth = depth
+          @reference_ids =
+            reference_ids ||
+            Restforce::Concerns::SubRequests::UniqueNameSet.new('reference_id')
         end
 
         # Public: Adds one record at this level of the tree.
@@ -126,6 +132,8 @@ module Restforce
         # Returns the Array of records built so far.
         def add(reference_id, opts = {})
           Restforce::Resources::Requirements.require_reference_id(reference_id)
+          # Normalised, since :ref1 and 'ref1' are one id once serialised.
+          @reference_ids << reference_id.to_s
 
           records << {
             attributes: { type: root, referenceId: reference_id }
@@ -156,7 +164,7 @@ module Restforce
                   "Cannot nest more than #{MAX_DEPTH} levels deep."
           end
 
-          new_builder = TreeBuilder.new(new_root, depth + 1)
+          new_builder = TreeBuilder.new(new_root, depth + 1, @reference_ids)
           yield(new_builder)
           records.last[association] = new_builder.tree
         end

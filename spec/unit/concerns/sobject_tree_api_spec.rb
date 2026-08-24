@@ -182,6 +182,54 @@ describe Restforce::Concerns::SObjectTreeAPI do
       end
     end
 
+    describe "reference id uniqueness" do
+      it "should refuse the same id twice at one level" do
+        builder = subject.new('Account')
+        builder.add(:ref1, Name: 'First')
+
+        expect { builder.add(:ref1, Name: 'Second') }.
+          to raise_error(ArgumentError, /already in use/)
+      end
+
+      it "should refuse an id already used further up the tree" do
+        builder = subject.new('Account')
+        builder.add(:ref1, Name: 'Account')
+
+        expect do
+          builder.embed('Contacts', 'Contact') { |c| c.add(:ref1, LastName: 'Smith') }
+        end.to raise_error(ArgumentError, /already in use/)
+      end
+
+      it "should refuse an id already used in a sibling branch" do
+        builder = subject.new('Account')
+        builder.add(:acc1, Name: 'First')
+        builder.embed('Contacts', 'Contact') { |c| c.add(:con1, LastName: 'Smith') }
+        builder.add(:acc2, Name: 'Second')
+
+        expect do
+          builder.embed('Contacts', 'Contact') { |c| c.add(:con1, LastName: 'Jones') }
+        end.to raise_error(ArgumentError, /already in use/)
+      end
+
+      it "should treat a symbol and its string as the same id" do
+        builder = subject.new('Account')
+        builder.add(:ref1, Name: 'First')
+
+        expect { builder.add('ref1', Name: 'Second') }.
+          to raise_error(ArgumentError, /already in use/)
+      end
+
+      it "should allow distinct ids throughout" do
+        builder = subject.new('Account')
+
+        expect do
+          builder.add(:acc1, Name: 'First')
+          builder.embed('Contacts', 'Contact') { |c| c.add(:con1, LastName: 'Smith') }
+          builder.add(:acc2, Name: 'Second')
+        end.not_to raise_error
+      end
+    end
+
     describe "#embed" do
       it "should raise when there is no record to embed into" do
         expect do
