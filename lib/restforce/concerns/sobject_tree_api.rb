@@ -19,7 +19,7 @@ module Restforce
       # Public: Creates a tree of up to 200 related records in a single
       # request, parents and children together.
       #
-      # root    - The String name of the sobject at the root of the tree.
+      # sobject - The String name of the sobject at the root of the tree.
       # records - Prebuilt records, if you would rather assemble them
       #           yourself than use the block.
       #
@@ -39,7 +39,7 @@ module Restforce
       # than MAX_RECORDS records.
       #
       # Returns the Restforce::Mash response.
-      def composite_tree(root, records = [])
+      def composite_tree(sobject, records = [])
         unless records.is_a?(Array)
           raise ArgumentError, 'records must be an Array of record hashes.'
         end
@@ -50,14 +50,14 @@ module Restforce
                   'Pass either records or a block to build them, not both.'
           end
 
-          builder = TreeBuilder.new(root)
+          builder = TreeBuilder.new(sobject)
           yield(builder)
           records = builder.records
         end
 
         validate_tree!(records)
 
-        api_post("composite/tree/#{root}", { records: records }.to_json).body
+        api_post("composite/tree/#{sobject}", { records: records }.to_json).body
       end
 
       # Public: Creates a tree and raises if Salesforce rejected it.
@@ -69,8 +69,8 @@ module Restforce
       # everything composite_tree raises.
       #
       # Returns the Restforce::Mash response.
-      def composite_tree!(root, records = [], &)
-        results = composite_tree(root, records, &)
+      def composite_tree!(sobject, records = [], &)
+        results = composite_tree(sobject, records, &)
         return results unless results[:hasErrors]
 
         errored = (results[:results] || []).find do |result|

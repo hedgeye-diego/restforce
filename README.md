@@ -699,6 +699,10 @@ which creates, updates, upserts, retrieves or deletes up to 200 records of any
 type in a single request. Unlike the Composite API, all the records are handled
 by one operation rather than by individual subrequests.
 
+This resource requires `api_version` 42.0 or later. Note that several examples
+above initialize the client with an older version; calling these methods with
+one raises `Restforce::APIVersionError`.
+
 ```ruby
 # Retrieve specific fields for a list of ids
 client.collection_get('Account', %w[001xx000003DGb2 001xx000003DGb3], %w[Id Name])

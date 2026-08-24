@@ -28,9 +28,9 @@ module Restforce
       # "approximately 800 IDs before the URL length causes the HTTP 414 error
       # URI too long" - a soft limit we deliberately don't enforce.
       #
-      # sobject_name - The String name of the sobject, ie 'Account'.
-      # ids          - An Array of Salesforce ids to retrieve.
-      # fields       - An Array of field names to return for each record.
+      # sobject - The String name of the sobject, ie 'Account'.
+      # ids     - An Array of Salesforce ids to retrieve.
+      # fields  - An Array of field names to return for each record.
       #
       # Examples
       #
@@ -40,12 +40,12 @@ module Restforce
       # Raises ArgumentError if either ids or fields is empty.
       #
       # Returns an Array of records, in the order the ids were given.
-      def collection_get(sobject_name, ids, fields)
+      def collection_get(sobject, ids, fields)
         guard_api_version!
         raise ArgumentError, "ids are required" if Array(ids).empty?
         raise ArgumentError, "fields are required" if Array(fields).empty?
 
-        api_get("composite/sobjects/#{sobject_name}",
+        api_get("composite/sobjects/#{sobject}",
                 ids: join_for_query(ids, 'ids'),
                 fields: join_for_query(fields, 'fields')).body
       end
@@ -172,12 +172,12 @@ module Restforce
       # matching existing records on an external id field. Every record must
       # carry that field.
       #
-      # sobject_type - The String name of the sobject, ie 'Account'.
-      # field_name   - The String name of the external id field. It must have
-      #                the External ID attribute set in Salesforce.
-      # opts         - The Hash options used to refine the request.
-      #                :all_or_none - If true, the entire request rolls back
-      #                               when any record fails. (default: false)
+      # sobject    - The String name of the sobject, ie 'Account'.
+      # field_name - The String name of the external id field. It must have
+      #              the External ID attribute set in Salesforce.
+      # opts       - The Hash options used to refine the request.
+      #              :all_or_none - If true, the entire request rolls back
+      #                             when any record fails. (default: false)
       #
       # Yields a RecordsBuilder to collect the records to upsert.
       #
@@ -194,9 +194,9 @@ module Restforce
       # failed.
       #
       # Returns an Array of per-record results.
-      def collection_upsert(sobject_type, field_name, opts = {}, &)
+      def collection_upsert(sobject, field_name, opts = {}, &)
         submit_records(:api_patch,
-                       "composite/sobjects/#{sobject_type}/#{field_name}",
+                       "composite/sobjects/#{sobject}/#{field_name}",
                        'upserted',
                        opts,
                        RecordsBuilder.new(field_name.to_sym),
@@ -207,8 +207,8 @@ module Restforce
       # them fails. Equivalent to collection_upsert with :all_or_none set.
       #
       # See collection_upsert.
-      def collection_upsert!(sobject_type, field_name, opts = {}, &)
-        collection_upsert(sobject_type, field_name, opts.merge(all_or_none: true), &)
+      def collection_upsert!(sobject, field_name, opts = {}, &)
+        collection_upsert(sobject, field_name, opts.merge(all_or_none: true), &)
       end
 
       # Public: Builds the request body collection_create would post, without
@@ -251,7 +251,7 @@ module Restforce
       # than anything in the body, so it does not appear in the result.
       #
       # See collection_create_request.
-      def collection_upsert_request(_sobject_type, field_name, opts = {}, &)
+      def collection_upsert_request(_sobject, field_name, opts = {}, &)
         build_records_request('upserted', opts, RecordsBuilder.new(field_name.to_sym), &)
       end
 
