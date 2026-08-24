@@ -13,23 +13,13 @@ module Restforce
       end
 
       class << self
+        def required_options
+          %i[api_version sobject_name field_name field_value]
+        end
+
         def path(api_version, sobject_name, field_name, field_value)
           "/services/data/v#{api_version}/sobjects/" \
             "#{sobject_name}/#{field_name}/#{encode_segment(field_value)}"
-        end
-
-        def build_option_url(opts = {})
-          Restforce::Resources::Requirements.require_options(opts,
-                                                             :api_version,
-                                                             :sobject_name,
-                                                             :field_name,
-                                                             :field_value)
-          options = { api_version: '26.0' }.merge(opts)
-          options[:url] ||= path(options[:api_version],
-                                 options[:sobject_name],
-                                 options[:field_name],
-                                 options[:field_value])
-          options
         end
       end
     end

@@ -15,6 +15,8 @@ module Restforce
     end
 
     class Base
+      DEFAULT_API_VERSION = '26.0'
+
       attr_accessor :method, :opts
 
       def initialize(method, opts = {})
@@ -65,8 +67,50 @@ module Restforce
           unescape_reference_ids(ERB::Util.url_encode(value.to_s))
         end
 
+        # Internal: The opts a subrequest must carry before its url can be
+        # built. Subclasses override this with the segments their .path needs.
+        #
+        # The base resource has no .path of its own, and takes its url from
+        # the caller instead.
+        #
+        # Returns an Array of Symbol option names.
+        def required_options
+          []
+        end
+
+        # Internal: The opts handed to .path, in positional order. Defaults to
+        # required_options, which is right whenever the required opts and the
+        # path segments line up. Any option listed here but not required is
+        # optional input that exists only to build the url, and is consumed in
+        # the process.
+        #
+        # Returns an Array of Symbol option names.
+        def url_options
+          required_options
+        end
+
+        # Internal: Validates the opts a resource was given, applies the
+        # default api version, and builds the url unless one was supplied.
+        # Resources without a .path of their own get their url from the
+        # caller and skip that last step.
+        #
+        # Raises ArgumentError if a required option is missing.
+        #
+        # Returns the Hash of options, with :url filled in.
         def build_option_url(opts = {})
-          { api_version: '26.0' }.merge(opts)
+          Requirements.require_options(opts, *required_options)
+          options = { api_version: DEFAULT_API_VERSION }.merge(opts)
+          options[:url] ||= build_url(options) if respond_to?(:path)
+          options
+        end
+
+        private
+
+        def build_url(options)
+          arguments = url_options.map do |name|
+            required_options.include?(name) ? options[name] : options.delete(name)
+          end
+          path(*arguments)
         end
       end
 

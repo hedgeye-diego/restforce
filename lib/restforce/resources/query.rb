@@ -4,16 +4,18 @@ module Restforce
   module Resources
     class Query < Base
       class << self
-        def path(api_version, soql)
-          encoded_path("/services/data/v#{api_version}/query",
-                       { q: soql })
+        def required_options
+          %i[api_version soql]
         end
 
-        def build_option_url(opts = {})
-          Restforce::Resources::Requirements.require_options(opts, :api_version, :soql)
-          options = { api_version: '26.0' }.merge(opts)
-          options[:url] ||= path(options[:api_version], options[:soql])
-          options
+        def path(api_version, soql)
+          encoded_path("/services/data/v#{api_version}/#{resource}", { q: soql })
+        end
+
+        # Internal: The endpoint this resource queries. QueryAll differs from
+        # Query in this one word.
+        def resource
+          'query'
         end
       end
     end

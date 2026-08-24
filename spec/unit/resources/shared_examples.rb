@@ -20,6 +20,16 @@ shared_examples_for 'build_option_url' do |clazz, requirements, url|
     options = clazz.build_option_url(requirements)
     expect(options[:url]).to eq(url)
   end
+
+  it "should not overwrite a url that was passed in" do
+    options = clazz.build_option_url(requirements.merge(url: '/already/built'))
+    expect(options[:url]).to eq('/already/built')
+  end
+
+  it "should carry the other options through untouched" do
+    options = clazz.build_option_url(requirements.merge(reference_id: 'ref1'))
+    expect(options[:reference_id]).to eq('ref1')
+  end
 end
 
 shared_examples_for 'an class that takes an optional body' do |clazz|
