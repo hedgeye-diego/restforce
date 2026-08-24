@@ -656,12 +656,17 @@ result = client.composite_graph do |graphs|
   end
 end
 
-result.has_errors
+result.hasErrors
 # => false
 
 result.graphs.first.graphResponse.compositeResponse.first.body.id
 # => '001xx000003DGb3'
 ```
+
+Each graph commits or rolls back on its own, so `composite_graph` reports
+failure on the response rather than raising — the graphs that did succeed are
+still there to read. Use `composite_graph!` to raise
+`Restforce::CompositeAPIError` instead when any graph failed.
 
 Note `'@{acc1.id}'`, which refers to the id of the record created by the
 `acc1` subrequest. Reference ids let a later subrequest use the result of an
@@ -758,6 +763,10 @@ end
 `embed` nests records under the record most recently added, using the
 relationship name as Salesforce knows it. The reference ids passed to `add`
 identify each record in the response.
+
+The sObject Tree resource is all or nothing: if any record is rejected, none
+are created. `composite_tree` reports that as `hasErrors` on the response,
+while `composite_tree!` raises `Restforce::CompositeAPIError`.
 
 ### Composite Batch API
 

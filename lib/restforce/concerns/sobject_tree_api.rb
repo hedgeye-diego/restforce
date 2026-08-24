@@ -60,6 +60,26 @@ module Restforce
         api_post("composite/tree/#{root}", { records: records }.to_json).body
       end
 
+      # Public: Creates a tree and raises if Salesforce rejected it.
+      #
+      # The sObject Tree resource is all or nothing, so a failure here means
+      # no records were created at all.
+      #
+      # Raises Restforce::CompositeAPIError if the tree was rejected, and
+      # everything composite_tree raises.
+      #
+      # Returns the Restforce::Mash response.
+      def composite_tree!(root, records = [], &)
+        results = composite_tree(root, records, &)
+        return results unless results[:hasErrors]
+
+        errored = (results[:results] || []).find do |result|
+          result[:errors].is_a?(Array) && result[:errors].any?
+        end
+
+        raise CompositeAPIError.new(errored&.dig(:errors, 0, :statusCode), results)
+      end
+
       private
 
       # Internal: Checks a built tree against the limits Salesforce documents

@@ -36,11 +36,31 @@ module Restforce
         results = api_post('composite/graph', composite.to_json).body
         # Anything other than an explicit success counts as an error, so a
         # response missing isSuccessful surfaces rather than reading as a
-        # silent success.
-        results[:has_errors] = (results[:graphs] || []).any? do |graph|
-          !graph[:isSuccessful]
-        end
+        # silent success. Salesforce names this hasErrors on the sObject Tree
+        # response but leaves it off the graph one, so we fill it in under the
+        # same name rather than inventing a second spelling.
+        results[:hasErrors] = failed_graphs(results).any?
         results
+      end
+
+      # Public: Runs a composite graph and raises if any graph failed, rather
+      # than reporting it on the response.
+      #
+      # Each graph commits or rolls back on its own, so a failure here does
+      # not mean nothing happened - the graphs that succeeded are on the
+      # exception's response.
+      #
+      # Yields a GraphsBuilder to collect the graphs.
+      #
+      # Raises Restforce::CompositeAPIError if any graph failed.
+      #
+      # Returns the Restforce::Mash response.
+      def composite_graph!(&)
+        results = composite_graph(&)
+        failed = failed_graphs(results)
+        return results if failed.empty?
+
+        raise CompositeAPIError.new(graph_error_code(failed.first), results)
       end
 
       # Public: Builds the request body composite_graph would post, without
@@ -67,6 +87,24 @@ module Restforce
       end
 
       private
+
+      # Internal: The graphs Salesforce did not report an explicit success for.
+      #
+      # Returns an Array of graphs.
+      def failed_graphs(results)
+        (results[:graphs] || []).reject { |graph| graph[:isSuccessful] }
+      end
+
+      # Internal: Digs the first real error code out of a failed graph, since
+      # the graph itself carries only an id and its subrequests' responses.
+      #
+      # Returns the String error code, or the graph id if none is present.
+      def graph_error_code(graph)
+        subresponses = graph.dig(:graphResponse, :compositeResponse) || []
+        errored = subresponses.find { |sub| sub[:body].is_a?(Array) && sub[:body].any? }
+
+        errored&.dig(:body, 0, :errorCode) || graph[:graphId]
+      end
 
       # Internal: Collects the caller's graphs and validates them. Shared by
       # composite_graph and composite_graph_request so both validate

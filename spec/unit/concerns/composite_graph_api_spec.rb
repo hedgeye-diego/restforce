@@ -51,7 +51,7 @@ describe Restforce::Concerns::CompositeGraphAPI do
         subrequest.find('Contact', 'c1', 'xxx')
       end
     end
-    expect(result.has_errors).to be_truthy
+    expect(result.hasErrors).to be_truthy
   end
 
   it "should NOT populate has_error if NONE of the graphs have failed" do
@@ -65,7 +65,7 @@ describe Restforce::Concerns::CompositeGraphAPI do
         subrequest.find('Contact', 'c1', 'xxx')
       end
     end
-    expect(result.has_errors).to be_falsey
+    expect(result.hasErrors).to be_falsey
   end
 
   context "when the built request exceeds Salesforce's limits" do
@@ -106,13 +106,47 @@ describe Restforce::Concerns::CompositeGraphAPI do
     it "should treat a graph with no isSuccessful as an error" do
       result = post_and_return(graphs: [{ graphId: 'g1' }])
 
-      expect(result.has_errors).to be(true)
+      expect(result.hasErrors).to be(true)
     end
 
     it "should not explode when there are no graphs in the response" do
       result = post_and_return(irrelevant: true)
 
-      expect(result.has_errors).to be(false)
+      expect(result.hasErrors).to be(false)
+    end
+  end
+
+  describe "#composite_graph!" do
+    let(:failed_response) do
+      {
+        graphs: [
+          { graphId: 'g1',
+            graphResponse: {
+              compositeResponse: [
+                { referenceId: 'c1', httpStatusCode: 400,
+                  body: [{ errorCode: 'MALFORMED_ID', message: 'bad id' }] }
+              ]
+            },
+            isSuccessful: false }
+        ]
+      }
+    end
+
+    def post_and_return(body)
+      client.should_receive(:api_post).and_return(Hashie::Mash.new(body: body))
+
+      client.composite_graph! do |builder|
+        builder.graph('g1') { |subrequest| subrequest.find('Contact', 'c1', 'xxx') }
+      end
+    end
+
+    it "should raise when a graph failed" do
+      expect { post_and_return(failed_response) }.
+        to raise_error(Restforce::CompositeAPIError, /MALFORMED_ID/)
+    end
+
+    it "should return the results when every graph succeeded" do
+      expect(post_and_return(response_hash).hasErrors).to be(false)
     end
   end
 

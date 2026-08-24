@@ -126,6 +126,34 @@ describe Restforce::Concerns::SObjectTreeAPI do
     end
   end
 
+  describe "#composite_tree!" do
+    let(:failed_response) do
+      {
+        hasErrors: true,
+        results: [
+          { referenceId: 'acc1',
+            errors: [{ statusCode: 'INVALID_FIELD', message: 'no such field',
+                       fields: ['Bogus__c'] }] }
+        ]
+      }
+    end
+
+    def post_and_return(body)
+      client.should_receive(:api_post).and_return(Hashie::Mash.new(body: body))
+
+      client.composite_tree!('Account') { |accounts| accounts.add(:acc1, Name: 'X') }
+    end
+
+    it "should raise when Salesforce rolled the tree back" do
+      expect { post_and_return(failed_response) }.
+        to raise_error(Restforce::CompositeAPIError, /INVALID_FIELD/)
+    end
+
+    it "should return the results when the tree was created" do
+      expect(post_and_return(response).hasErrors).to be_falsey
+    end
+  end
+
   describe Restforce::Concerns::SObjectTreeAPI::TreeBuilder do
     subject { Restforce::Concerns::SObjectTreeAPI::TreeBuilder }
     it "takes a root" do
