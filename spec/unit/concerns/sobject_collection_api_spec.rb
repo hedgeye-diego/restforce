@@ -5,6 +5,7 @@ require 'hashie/mash'
 
 describe Restforce::Concerns::SObjectCollectionAPI do
   let(:endpoint) { 'composite/sobjects' }
+  let(:max_records) { Restforce::Concerns::SObjectCollectionAPI::MAX_RECORDS }
 
   before do
     # client.should_receive(:options).and_return(api_version: 38.0)
@@ -81,6 +82,12 @@ describe Restforce::Concerns::SObjectCollectionAPI do
       end.not_to raise_error(ArgumentError)
     end
 
+    it "should raise an ArgumentError when there are too many ids" do
+      expect do
+        client.collection_delete((1..(max_records + 1)).to_a)
+      end.to raise_error(ArgumentError, /#{max_records}/)
+    end
+
     it "should return the correct size when successfull" do
       client.
         should_receive(:api_delete).
@@ -119,6 +126,22 @@ describe Restforce::Concerns::SObjectCollectionAPI do
       end.to raise_error(ArgumentError)
     end
 
+    it "should raise an ArgumentError when there are too many records" do
+      expect do
+        client.send(method, *[args, { all_or_none: false }].flatten.compact) do |records|
+          (max_records + 1).times { records.add('Account', record_attributes) }
+        end
+      end.to raise_error(ArgumentError, /#{max_records}/)
+    end
+
+    it "should name the operation in the empty records error" do
+      expect do
+        client.send(method, *[args, { all_or_none: false }].flatten.compact) do |builder|
+          builder
+        end
+      end.to raise_error(ArgumentError, "There are no records to be #{past_tense}")
+    end
+
     [true, false].each do |all_or_none_value|
       it "should take an all_or_none: #{all_or_none_value} parameter and pass it along" do
         collection_client_expectation(all_or_none_value, successful_response, api_method)
@@ -148,6 +171,7 @@ describe Restforce::Concerns::SObjectCollectionAPI do
   describe "#collection_create" do
     it_behaves_like "a collection create/update operation",
                     :collection_create, :api_post do
+      let(:past_tense) { "created" }
       let(:record_attributes) do
         {
           Name: "example",
@@ -160,6 +184,7 @@ describe Restforce::Concerns::SObjectCollectionAPI do
   describe "#collection_update" do
     it_behaves_like "a collection create/update operation",
                     :collection_update, :api_patch do
+      let(:past_tense) { "updated" }
       let(:record_attributes) do
         {
           id: '123',
@@ -173,6 +198,7 @@ describe Restforce::Concerns::SObjectCollectionAPI do
   describe "#collection_upsert" do
     it_behaves_like "a collection create/update operation",
                     :collection_upsert, :api_patch, "Account", 'MyExtId__c' do
+      let(:past_tense) { "upserted" }
       let(:endpoint) { "composite/sobjects/Account/MyExtId__c" }
       let(:record_attributes) do
         {
