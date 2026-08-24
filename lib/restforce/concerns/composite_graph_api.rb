@@ -32,8 +32,8 @@ module Restforce
 
       def composite_graph(opts = {}, &)
         composite = CompositeGraph.new(options)
-        composite.validate!
         composite.yield_builder(&)
+        composite.validate!
 
         return composite.to_hash if opts[:dry_run]
 
@@ -61,12 +61,12 @@ module Restforce
 
         def validate!
           if builder.graphs_count > MAX_GRAPH_COUNT
-            raise ArgumentError, 'Cannot have more than 25 graphs.'
+            raise ArgumentError, "Cannot have more than #{MAX_GRAPH_COUNT} graphs."
           end
 
           return unless builder.node_count > MAX_NODE_COUNT
 
-          raise ArgumentError, 'Cannot have more than 500 nodes.'
+          raise ArgumentError, "Cannot have more than #{MAX_NODE_COUNT} nodes."
         end
 
         def yield_builder

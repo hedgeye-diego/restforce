@@ -61,6 +61,37 @@ describe Restforce::Concerns::CompositeGraphAPI do
     expect(result.has_errors).to be_falsey
   end
 
+  context "when the built request exceeds Salesforce's limits" do
+    let(:max_graphs) do
+      Restforce::Concerns::CompositeGraphAPI::CompositeGraph::MAX_GRAPH_COUNT
+    end
+    let(:max_nodes) do
+      Restforce::Concerns::CompositeGraphAPI::CompositeGraph::MAX_NODE_COUNT
+    end
+
+    it "should raise an ArgumentError when too many graphs are built" do
+      client.should_not_receive(:api_post)
+
+      expect do
+        client.composite_graph do |builder|
+          (max_graphs + 1).times { |i| builder.graph("g#{i}") }
+        end
+      end.to raise_error(ArgumentError)
+    end
+
+    it "should raise an ArgumentError when too many nodes are built" do
+      client.should_not_receive(:api_post)
+
+      expect do
+        client.composite_graph do |builder|
+          builder.graph('g1') do |subrequest|
+            (max_nodes + 1).times { |i| subrequest.find('Contact', "c#{i}", 'xxx') }
+          end
+        end
+      end.to raise_error(ArgumentError)
+    end
+  end
+
   context "in dry run mode" do
     it "should return a hash" do
       debug_output = client.composite_graph(dry_run: true) do |builder|

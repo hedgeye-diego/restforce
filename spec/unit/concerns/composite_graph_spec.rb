@@ -53,6 +53,28 @@ describe Restforce::Concerns::CompositeGraphAPI::CompositeGraph do
         composite.validate!
       end.to raise_error(ArgumentError)
     end
+
+    it "should report the graph limit it actually enforces" do
+      expect do
+        composite.yield_builder do |builder|
+          (subject::MAX_GRAPH_COUNT + 1).times { |i| builder.graph("name#{i}") }
+        end
+        composite.validate!
+      end.to raise_error(ArgumentError, /#{subject::MAX_GRAPH_COUNT}/)
+    end
+
+    it "should report the node limit it actually enforces" do
+      expect do
+        composite.yield_builder do |builder|
+          builder.graph("name") do |subrequest|
+            (subject::MAX_NODE_COUNT + 1).times do |i|
+              subrequest.find('Account', "ref#{i}", "id#{i}")
+            end
+          end
+        end
+        composite.validate!
+      end.to raise_error(ArgumentError, /#{subject::MAX_NODE_COUNT}/)
+    end
   end
   describe "#yield_builder" do
     it "should yield a Restforce::Concerns::CompositeGraphAPI::GraphsBuilder" do
