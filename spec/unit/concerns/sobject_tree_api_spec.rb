@@ -87,6 +87,35 @@ describe Restforce::Concerns::SObjectTreeAPI do
         create_tree(account)
       end
     end
+
+    it "should raise when given both records and a block" do
+      client.should_not_receive(:api_post)
+
+      expect do
+        client.composite_tree('Account', [{ attributes: { type: 'Account' } }]) do |a|
+          a.add(:acc1, Name: 'Never Sent')
+        end
+      end.to raise_error(ArgumentError, /records or a block/)
+    end
+
+    it "should raise when there is nothing to send" do
+      client.should_not_receive(:api_post)
+
+      expect do
+        client.composite_tree('Account')
+      end.to raise_error(ArgumentError, /no records/)
+    end
+
+    it "should raise when there are more records than Salesforce accepts" do
+      client.should_not_receive(:api_post)
+
+      max = Restforce::Concerns::SObjectTreeAPI::MAX_RECORDS
+      expect do
+        client.composite_tree('Account') do |account|
+          (max + 1).times { |i| account.add(:"acc#{i}", Name: "Account #{i}") }
+        end
+      end.to raise_error(ArgumentError, /#{max}/)
+    end
   end
 
   describe Restforce::Concerns::SObjectTreeAPI::TreeBuilder do
@@ -95,6 +124,28 @@ describe Restforce::Concerns::SObjectTreeAPI do
       expect do
         subject.new
       end.to raise_error
+    end
+
+    describe "#embed" do
+      it "should raise when there is no record to embed into" do
+        expect do
+          subject.new('Account').embed('Contacts', 'Contact') do |contacts|
+            contacts.add(:c1, LastName: 'Smith')
+          end
+        end.to raise_error(ArgumentError, /add a record/)
+      end
+
+      it "should raise when nested deeper than Salesforce allows" do
+        nest = lambda do |builder, level|
+          builder.add(:"r#{level}", Name: "level #{level}")
+          builder.embed("Children", "L#{level + 1}") do |child|
+            nest.call(child, level + 1)
+          end
+        end
+
+        expect { nest.call(subject.new('L1'), 1) }.
+          to raise_error(ArgumentError, /levels deep/)
+      end
     end
 
     describe "#tree" do
