@@ -1,3 +1,17 @@
+## 8.0.1 (December 29, 2025)
+
+* Allow `faraday-follow_redirects` v0.4.x and v0.5.x to unlock Ruby 4.0 compatibility
+
+## 8.0.0 (December 18, 2024)
+
+**This version contains breaking changes. For help with upgrading, see [`UPGRADING.md`](https://github.com/restforce/restforce/blob/main/UPGRADING.md).**
+
+- **⚠️ Drop support for Ruby 3.0**, since Ruby 3.0 has reached its end-of-life (@timrogers)
+
+## 7.6.0 (December 18, 2024)
+
+- **Allow all `faraday` versions up to, but not including, v3.0.0**: For more details, see https://github.com/restforce/restforce/pull/915 (@timrogers)
+
 ## 7.5.0 (September 4, 2024)
 
 - Add support for `faraday` v2.11.x (@timrogers)

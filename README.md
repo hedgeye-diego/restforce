@@ -3,7 +3,7 @@
 [![CircleCI](https://circleci.com/gh/restforce/restforce.svg?style=svg)](https://circleci.com/gh/restforce/restforce)
 ![Downloads](https://img.shields.io/gem/dt/restforce.svg)
 
-Restforce is a ruby gem for the [Salesforce REST api](http://www.salesforce.com/us/developer/docs/api_rest/index.htm).
+Restforce is a ruby gem for the [Salesforce REST API](https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/intro_what_is_rest_api.htm).
 
 Features include:
 
@@ -19,7 +19,7 @@ Features include:
 * Support for GZIP compression.
 * Support for [custom Apex REST endpoints](#custom-apex-rest-endpoints).
 * Support for dependent picklists.
-* Support for decoding [Force.com Canvas](http://www.salesforce.com/us/developer/docs/platform_connectpre/canvas_framework.pdf) signed requests. (NEW!)
+* Support for decoding [Force.com Canvas](https://developer.salesforce.com/docs/atlas.en-us.platform_connect.meta/platform_connect/canvas_framework_intro.htm) signed requests. (NEW!)
 
 [Official Website](https://restforce.github.io/) | [Documentation](http://rubydoc.info/gems/restforce/frames) | [Changelog](https://github.com/restforce/restforce/tree/master/CHANGELOG.md)
 
@@ -27,7 +27,7 @@ Features include:
 
 Add this line to your application's Gemfile:
 
-    gem 'restforce', '~> 7.5.0'
+    gem 'restforce', '~> 8.0.1'
 
 And then execute:
 
@@ -37,15 +37,16 @@ Or install it yourself as:
 
     $ gem install restforce
 
-__As of version 7.0.0, this gem is only compatible with Ruby 3.0.0 and later.__ If you're using an earlier Ruby version:
+**As of version 8.0.0, this gem is only compatible with Ruby 3.1.0 and later.** If you're using an earlier Ruby version:
 
-* for Ruby 2.7, use version 6.2.4 or earlier
-* for Ruby 2.6, use version 5.3.1 or earlier
-* for Ruby 2.5, use version 5.0.6 or earlier
-* for Ruby 2.4, use version 4.3.0 or earlier
-* for Ruby 2.3, use version 3.2.0 or earlier
-* for Ruby versions 2.2, 2.1 and 2.0, use version 2.5.3 or earlier
-* for Ruby 1.9.3, use version 2.4.2
+- for Ruby 3.0, use version 7.6.0 or earlier
+- for Ruby 2.7, use version 6.2.4 or earlier
+- for Ruby 2.6, use version 5.3.1 or earlier
+- for Ruby 2.5, use version 5.0.6 or earlier
+- for Ruby 2.4, use version 4.3.0 or earlier
+- for Ruby 2.3, use version 3.2.0 or earlier
+- for Ruby versions 2.2, 2.1 and 2.0, use version 2.5.3 or earlier
+- for Ruby 1.9.3, use version 2.4.2
 
 This gem is versioned using [Semantic Versioning](http://semver.org/), so you can be confident when updating that there will not be breaking changes outside of a major version (following format MAJOR.MINOR.PATCH, so for instance moving from 3.1.0 to 4.0.0 would be allowed to include incompatible API changes). See the [changelog](https://github.com/restforce/restforce/tree/master/CHANGELOG.md) for details on what has changed in each version.
 
@@ -116,7 +117,7 @@ If you prefer to use a username and password to authenticate:
 client = Restforce.new(username: config['username'],
                        password: config['password'],
                        instance_url: config['instance_url'],
-                       host: config['host'],                   # https://test.salesforce.com for sandbox (optional)
+                       host: config['host'],                   # test.salesforce.com for sandbox (optional)
                        client_id: config['client_key'],        # Salesforce Client Key
                        client_secret: config['client_secret'], # Salesforce Client Secret
                        api_version: '55.0')
@@ -329,7 +330,7 @@ client.search('FIND {bar}')
 # => #<Restforce::Collection >
 
 # Find accounts matching the term 'genepoint' and return the `Name` field
-client.search('FIND {genepoint} RETURNING Account (Name)').map(&:Name)
+client.search('FIND {genepoint} RETURNING Account (Name)')["searchRecords"].map(&:Name)
 # => ['GenePoint']
 ```
 
@@ -732,7 +733,7 @@ EM.run {
 
 _See also_:
 
-* [Force.com Streaming API docs](http://www.salesforce.com/us/developer/docs/api_streaming/index.htm)
+* [Force.com Streaming API docs](https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/intro_stream.htm)
 * [Message Durability docs](https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/using_streaming_api_durability.htm)
 
 *Note:* Restforce's streaming implementation is known to be compatible with version `0.8.9` of the faye gem.
@@ -825,7 +826,7 @@ You can use Restforce to decode signed requests from Salesforce. See [the exampl
 
 ## Tooling API
 
-To use the [Tooling API](http://www.salesforce.com/us/developer/docs/api_toolingpre/api_tooling.pdf),
+To use the [Tooling API](https://developer.salesforce.com/docs/atlas.en-us.api_tooling.meta/api_tooling/intro_api_tooling.htm),
 call `Restforce.tooling` instead of `Restforce.new`:
 
 ```ruby
