@@ -15,7 +15,7 @@ module Restforce
       class << self
         def path(api_version, sobject_name, field_name, field_value)
           "/services/data/v#{api_version}/sobjects/" \
-            "#{sobject_name}/#{field_name}/#{field_value}"
+            "#{sobject_name}/#{field_name}/#{encode_segment(field_value)}"
         end
 
         def build_option_url(opts = {})

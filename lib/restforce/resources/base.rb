@@ -55,6 +55,14 @@ module Restforce
           end
         end
 
+        # Percent-encodes a single path segment so that a value containing url
+        # structural characters ('/', '?', '#', ...) cannot escape its segment.
+        # Reference id syntax ('@{c1.Id}') is restored afterwards, since
+        # Salesforce resolves those before decoding the url.
+        def encode_segment(value)
+          unescape_reference_ids(ERB::Util.url_encode(value.to_s))
+        end
+
         def build_option_url(opts = {})
           { api_version: '26.0' }.merge(opts)
         end

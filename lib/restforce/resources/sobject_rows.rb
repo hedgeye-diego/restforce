@@ -19,7 +19,7 @@ module Restforce
           fields_value = ERB::Util.url_encode(Array(fields).join(','))
           fields_query = fields_value.empty? ? '' : "?fields=#{fields_value}"
           "/services/data/v#{api_version}/sobjects/" \
-            "#{sobject_name}/#{sobject_id}#{fields_query}"
+            "#{sobject_name}/#{encode_segment(sobject_id)}#{fields_query}"
         end
 
         def build_option_url(opts = {})

@@ -33,7 +33,7 @@ describe Restforce::Concerns::CompositeAPI do
         with(endpoint, { compositeRequest: [
           {
             method: 'GET',
-            url: '/services/data/v38.0/sobjects/Object/email/test@salesforce',
+            url: '/services/data/v38.0/sobjects/Object/email/test%40salesforce',
             referenceId: 'find_ref'
           }
         ], allOrNone: all_or_none, collateSubrequests: false }.to_json).
