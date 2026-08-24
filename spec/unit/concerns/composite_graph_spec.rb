@@ -81,6 +81,20 @@ describe Restforce::Concerns::CompositeGraphAPI::CompositeGraph do
       end.to raise_error(ArgumentError, /#{subject::MAX_NODE_COUNT}/)
     end
   end
+  describe "#graph" do
+    it "should not burn the name when building the graph fails" do
+      composite.yield_builder do |builder|
+        expect { builder.graph('g1') { raise 'boom while building' } }.
+          to raise_error(RuntimeError)
+
+        expect { builder.graph('g1') { |s| s.find('Account', 'r1', '001xx') } }.
+          not_to raise_error
+      end
+
+      expect(composite.to_hash[:graphs].map { |g| g[:graphId] }).to eq(['g1'])
+    end
+  end
+
   describe "#yield_builder" do
     it "should yield a Restforce::Concerns::CompositeGraphAPI::GraphsBuilder" do
       composite.yield_builder do |builder|

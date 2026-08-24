@@ -87,15 +87,9 @@ module Restforce
         # Internal: The opts a subrequest must carry before its url can be
         # built. Subclasses override this with the segments their .path needs.
         #
-        # The base resource has no .path, so it can only get a url from its
-        # caller - define_generic_subrequest sets one in the block it runs
-        # ahead of build_option_url. Requiring :url here turns forgetting that
-        # block into an ArgumentError at build time, rather than a nil url
-        # travelling all the way to Salesforce.
-        #
         # Returns an Array of Symbol option names.
         def required_options
-          [:url]
+          []
         end
 
         # Internal: The opts handed to .path, in positional order. Defaults to
@@ -110,17 +104,28 @@ module Restforce
         end
 
         # Internal: Validates the opts a resource was given, applies the
-        # default api version, and builds the url unless one was supplied.
-        # Resources without a .path of their own get their url from the
-        # caller and skip that last step.
+        # default api version, and settles its url.
+        #
+        # A resource with a .path builds its own url from url_options unless
+        # the caller supplied one. A resource without a .path can only be
+        # given one - define_generic_subrequest sets it in the block it runs
+        # ahead of this - so the url is required instead. Keeping that
+        # requirement here rather than in required_options means a subclass
+        # that adds a .path is never asked for a url it should be building.
         #
         # Raises ArgumentError if a required option is missing.
         #
-        # Returns the Hash of options, with :url filled in.
+        # Returns the Hash of options, with :url settled.
         def build_option_url(opts = {})
           Requirements.require_options(opts, *required_options)
           options = { api_version: DEFAULT_API_VERSION }.merge(opts)
-          options[:url] ||= build_url(options) if respond_to?(:path)
+
+          if respond_to?(:path)
+            options[:url] ||= build_url(options)
+          else
+            Requirements.require_options(options, :url)
+          end
+
           options
         end
 
@@ -139,6 +144,8 @@ module Restforce
       def get_hash_for(key, as = key)
         respond_to?(key) && !send(key)&.empty? ? { as => send(key) } : {}
       end
+
+      private
 
       def respond_to_missing?(method, include_private = false)
         if opts&.key?(method)

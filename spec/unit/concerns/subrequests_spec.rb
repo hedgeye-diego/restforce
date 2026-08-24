@@ -46,6 +46,32 @@ describe Restforce::Concerns::SubRequests do
                     Restforce::Concerns::SubRequests::CompositeSubrequests
   end
 
+  # These are the only resources with no path of their own: their url comes
+  # from the block define_generic_subrequest runs, which is what Base's :url
+  # requirement exists to catch when it is missing.
+  describe "the generic describe subrequests" do
+    subject(:subrequests) do
+      Restforce::Concerns::SubRequests::CompositeSubrequests.new(options)
+    end
+
+    {
+      get_approval_layouts: %w[GET approvalLayouts],
+      describe_approval_layouts: %w[HEAD approvalLayouts],
+      get_layout_description: %w[GET layouts],
+      describe_layout_description: %w[HEAD layouts]
+    }.each do |method, (verb, segment)|
+      it "should build a url for ##{method}" do
+        subrequests.public_send(method, 'Account', 'ref1')
+
+        expect(subrequests.requests.last).to eq(
+          method: verb,
+          url: "/services/data/v58.0/sobjects/Account/describe/#{segment}/",
+          referenceId: 'ref1'
+        )
+      end
+    end
+  end
+
   describe Restforce::Concerns::SubRequests::UniqueNameSet do
     subject(:names) { described_class.new('reference_id') }
 

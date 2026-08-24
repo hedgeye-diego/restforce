@@ -26,6 +26,38 @@ describe Restforce::Resources::Base do
     end
   end
 
+  describe "a subclass that builds its own url" do
+    let(:resource) do
+      Class.new(described_class) do
+        class << self
+          def url_options
+            [:api_version]
+          end
+
+          def path(api_version)
+            "/services/data/v#{api_version}/limits"
+          end
+        end
+      end
+    end
+
+    it "should not inherit Base's url requirement" do
+      expect(resource.required_options).not_to include(:url)
+    end
+
+    it "should build its url from path rather than demand one" do
+      expect(resource.build_option_url(api_version: '58.0')[:url]).
+        to eq('/services/data/v58.0/limits')
+    end
+  end
+
+  describe "visibility" do
+    it "should keep the method_missing hooks private" do
+      expect(described_class.private_instance_methods).
+        to include(:method_missing, :respond_to_missing?)
+    end
+  end
+
   describe "#url" do
     it "should read the url out of opts" do
       resource = described_class.new(:get, url: '/services/data/v58.0/limits')

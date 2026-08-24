@@ -140,10 +140,18 @@ module Restforce
           graphs.sum { |graph| graph[:compositeRequest].size }
         end
 
+        # Public: Adds one graph of related subrequests.
+        #
+        # The name is registered only once the graph has been built, so a
+        # build that raises part way through leaves the name free to use
+        # again rather than burning it for the rest of the request.
+        #
+        # Returns the Array of graphs built so far.
         def graph(name)
-          graph_names << name
           subrequests = Restforce::Concerns::SubRequests::GraphSubrequests.new(options)
           yield(subrequests) if block_given?
+
+          graph_names << name
           graphs << {
             graphId: name,
             compositeRequest: subrequests.requests
