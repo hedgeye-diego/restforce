@@ -556,6 +556,224 @@ client.get('/services/apexrest/FieldCase', company: 'GenePoint')
 
 * * *
 
+### Composite API
+
+Restforce supports the [Composite API](https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_composite_composite.htm).
+This feature permits the user to send a composite object—that is, a complex
+object with nested children—in a single API call. Up to 25 requests may be
+included in a single composite.
+
+
+```ruby
+# build up an array of requests:
+requests << {
+  method: :update,
+  sobject: sobject, # e.g. "Contact"
+  reference_id: reference_id,
+  data: data
+}
+
+# send every 25 requests as a subrequest in a single composite call
+requests.each_slice(25).map do |req_slice|
+  client.composite do |subrequest|
+    req_slice.each do |r|
+      subrequest.send *r.values
+    end
+  end
+end
+
+# note that we're using `map` to return an array of each responses to each
+# composite call; 100 requests will produce 4 responses
+```
+
+Use `composite!` to have the whole request roll back if any subrequest fails,
+rather than committing the ones that succeeded.
+
+#### Composite subrequests
+
+The object yielded to the block builds one subrequest per call. Each takes a
+reference id, which names that subrequest in the response and lets a later
+subrequest refer to its result as `'@{ref.field}'`.
+
+```ruby
+client.composite do |subrequest|
+  # records by id
+  subrequest.create('Account', 'ref1', Name: 'Widget Factory')
+  subrequest.find('Account', 'ref2', '001xx000003DGb2')
+  subrequest.find('Account', 'ref3', '001xx000003DGb2', fields: %w[Id Name])
+  subrequest.update('Account', 'ref4', Id: '001xx000003DGb2', Name: 'Ltd')
+  subrequest.update_by_id('Account', 'ref5', '001xx000003DGb2',
+                          body: { Name: 'Ltd' })
+  subrequest.destroy('Account', 'ref6', '001xx000003DGb2')
+
+  # records by external id
+  subrequest.find_by('Account', 'ref7', 'a1', 'MyExtId__c')
+  subrequest.upsert('Account', 'ref8', 'MyExtId__c',
+                    MyExtId__c: 'a1', Name: 'Widget Factory')
+  subrequest.upsert_by('Account', 'ref9', 'a1', 'MyExtId__c',
+                       body: { Name: 'Widget Factory' })
+  subrequest.delete_by('Account', 'ref10', 'a1', 'MyExtId__c')
+  subrequest.headers_by('Account', 'ref11', 'a1', 'MyExtId__c')
+
+  # queries
+  subrequest.query('SELECT Id FROM Account LIMIT 10', 'ref12')
+  subrequest.query_all('SELECT Id FROM Account LIMIT 10', 'ref13')
+
+  # metadata
+  subrequest.basic_metadata('Account', 'ref14')
+  subrequest.get_approval_layouts('Account', 'ref15')
+  subrequest.get_layout_description('Account', 'ref16')
+end
+```
+
+`update` takes the attributes with the id among them, while `update_by_id`
+takes the id separately and the rest in `body:`. `upsert` and `upsert_by`
+relate the same way. The `describe_` prefixed forms of the last two —
+`describe_approval_layouts` and `describe_layout_description` — issue a `HEAD`
+rather than a `GET`, returning only the headers.
+
+### Composite Graph API
+
+Restforce supports the [Composite Graph API](https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_composite_graph.htm),
+which groups subrequests into independent graphs. Each graph either succeeds
+completely or rolls back completely, without affecting the others — so one bad
+graph does not lose the work of its neighbours.
+
+A request may hold up to 75 graphs and 500 nodes in total, and requires
+`api_version` 50.0 or later.
+
+```ruby
+result = client.composite_graph do |graphs|
+  graphs.graph('new_customer') do |subrequest|
+    subrequest.create('Account', 'acc1', Name: 'Widget Factory')
+    subrequest.create('Contact', 'con1', LastName: 'Smith',
+                                          AccountId: '@{acc1.id}')
+  end
+
+  graphs.graph('existing_customer') do |subrequest|
+    subrequest.update_by_id('Account', 'acc2', '001xx000003DGb2',
+                            body: { Name: 'Widget Factory Ltd' })
+  end
+end
+
+result.has_errors
+# => false
+
+result.graphs.first.graphResponse.compositeResponse.first.body.id
+# => '001xx000003DGb3'
+```
+
+Note `'@{acc1.id}'`, which refers to the id of the record created by the
+`acc1` subrequest. Reference ids let a later subrequest use the result of an
+earlier one in the same graph.
+
+Graph subrequests are the same set the Composite API offers, minus `query`,
+`query_all` and the describe subrequests, which Salesforce does not allow in a
+graph. Note that `update` inside a graph takes an id, being an alias for
+`update_by_id`; the attribute based `update` shown under the Composite API is
+only available there.
+
+To see the request that would be sent without sending it, use
+`composite_graph_request`. It validates exactly as `composite_graph` does, so
+an oversized request raises here too:
+
+```ruby
+client.composite_graph_request do |graphs|
+  graphs.graph('g1') { |subrequest| subrequest.find('Contact', 'c1', '003xx') }
+end
+# => { graphs: [{ graphId: 'g1',
+#                 compositeRequest: [{ method: 'GET',
+#                                      url: '/services/data/v58.0/sobjects/Contact/003xx',
+#                                      referenceId: 'c1' }] }] }
+```
+
+### sObject Collections API
+
+Restforce supports the [sObject Collections API](https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_composite_sobjects_collections.htm),
+which creates, updates, upserts, retrieves or deletes up to 200 records of any
+type in a single request. Unlike the Composite API, all the records are handled
+by one operation rather than by individual subrequests.
+
+```ruby
+# Retrieve specific fields for a list of ids
+client.collection_get('Account', %w[001xx000003DGb2 001xx000003DGb3], %w[Id Name])
+# => [#<Restforce::Mash Id="001xx000003DGb2" Name="Widget Factory">, ...]
+
+# Create
+client.collection_create do |records|
+  records.add('Account', Name: 'Widget Factory')
+  records.add('Contact', LastName: 'Smith')
+end
+# => [#<Restforce::Mash id="001xx000003DGb2" success=true errors=[]>, ...]
+
+# Update — each record carries its own id
+client.collection_update do |records|
+  records.add('Account', id: '001xx000003DGb2', Name: 'Widget Factory Ltd')
+end
+
+# Upsert against an external id field
+client.collection_upsert('Account', 'MyExtId__c') do |records|
+  records.add('Account', MyExtId__c: 'a1', Name: 'Widget Factory')
+end
+
+# Delete
+client.collection_delete(%w[001xx000003DGb2 001xx000003DGb3])
+```
+
+By default a failing record does not affect the others. Pass
+`all_or_none: true`, or use the bang methods, to roll the whole request back
+instead and raise `Restforce::ResponseError` on the first failure:
+
+```ruby
+client.collection_create!  { |records| records.add('Account', Name: 'Widget Factory') }
+client.collection_update!  { |records| records.add('Account', id: '001xx', Name: 'Ltd') }
+client.collection_upsert!('Account', 'MyExtId__c') { |records| ... }
+client.collection_delete!('001xx000003DGb2', '001xx000003DGb3')
+```
+
+Each write has a `_request` counterpart that builds and validates the body
+without sending it — `collection_create_request`, `collection_update_request`
+and `collection_upsert_request`.
+
+### sObject Tree API
+
+Restforce supports the [sObject Tree API](https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_composite_sobject_tree.htm),
+which creates up to 200 records — parents and their children together — in one
+request, nested up to five levels deep.
+
+```ruby
+client.composite_tree('Account') do |accounts|
+  accounts.add(:acc1, Name: 'Widget Factory')
+
+  accounts.embed('Contacts', 'Contact') do |contacts|
+    contacts.add(:contact1, FirstName: 'John', LastName: 'Smith')
+    contacts.add(:contact2, FirstName: 'Jane', LastName: 'Smith')
+  end
+
+  accounts.add(:acc2, Name: 'Widget Wholesalers')
+end
+# => #<Restforce::Mash hasErrors=false results=[...]>
+```
+
+`embed` nests records under the record most recently added, using the
+relationship name as Salesforce knows it. The reference ids passed to `add`
+identify each record in the response.
+
+### Composite Batch API
+
+Restforce supports the [Composite Batch API](https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_composite_batch.htm).
+This feature permits up to 25 subrequests in a single request, though each
+subrequest counts against the API limit. On the other hand, it has fewer
+limitations than the Composite API.
+
+```
+client.batch do |subrequests|
+  subrequests.create('Object', name: 'test')
+  subrequests.update('Object', id: '123', name: 'test')
+  subrequests.destroy('Object', '123')
+end
+```
+
 ### Streaming
 
 Restforce supports the [Streaming API](https://trailhead.salesforce.com/en/content/learn/modules/api_basics/api_basics_streaming), and makes implementing
@@ -593,51 +811,6 @@ end
 
 Boom, you're now receiving push notifications when Accounts are
 created/updated.
-
-#### Composite API
-
-Restforce supports the [Composite API](https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_composite_composite.htm).
-This feature permits the user to send a composite object—that is, a complex
-object with nested children—in a single API call. Up to 25 requests may be
-included in a single composite.
-
-
-```ruby
-# build up an array of requests:
-requests << {
-  method: :update,
-  sobject: sobject, # e.g. "Contact"
-  reference_id: reference_id,
-  data: data
-}
-
-# send every 25 requests as a subrequest in a single composite call
-requests.each_slice(25).map do |req_slice|
-  client.composite do |subrequest|
-    req_slice.each do |r|
-      subrequest.send *r.values
-    end
-  end
-end
-
-# note that we're using `map` to return an array of each responses to each
-# composite call; 100 requests will produce 4 responses
-```
-
-#### Composite Batch API
-
-Restforce supports the [Composite Batch API](https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_composite_batch.htm).
-This feature permits up to 25 subrequests in a single request, though each
-subrequest counts against the API limit. On the other hand, it has fewer
-limitations than the Composite API.
-
-```
-client.batch do |subrequests|
-  subrequests.create('Object', name: 'test')
-  subrequests.update('Object', id: '123', name: 'test')
-  subrequests.destroy('Object', '123')
-end
-```
 
 #### Replaying Events
 
