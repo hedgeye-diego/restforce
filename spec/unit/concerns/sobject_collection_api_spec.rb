@@ -36,6 +36,22 @@ describe Restforce::Concerns::SObjectCollectionAPI do
       end.to raise_error(ArgumentError)
     end
 
+    it "should refuse an id that would split into two" do
+      client.should_not_receive(:api_get)
+
+      expect do
+        client.collection_get("Contact", ["001xx1", "a,b"], %w[Id])
+      end.to raise_error(ArgumentError, /comma/)
+    end
+
+    it "should refuse a field name that would split into two" do
+      client.should_not_receive(:api_get)
+
+      expect do
+        client.collection_get("Contact", %w[001xx1], ["Id", "Name,Email"])
+      end.to raise_error(ArgumentError, /comma/)
+    end
+
     it "returns a response" do
       client.
         should_receive(:api_get).
@@ -80,6 +96,14 @@ describe Restforce::Concerns::SObjectCollectionAPI do
       expect do
         client.collection_delete([1, 2, 3])
       end.not_to raise_error(ArgumentError)
+    end
+
+    it "should refuse an id that would split into two" do
+      client.should_not_receive(:api_delete)
+
+      expect do
+        client.collection_delete(["001xx1", "a,b"])
+      end.to raise_error(ArgumentError, /comma/)
     end
 
     it "should raise an ArgumentError when there are too many ids" do

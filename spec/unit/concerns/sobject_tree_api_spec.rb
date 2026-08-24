@@ -98,6 +98,14 @@ describe Restforce::Concerns::SObjectTreeAPI do
       end.to raise_error(ArgumentError, /records or a block/)
     end
 
+    it "should raise when records is not an array" do
+      client.should_not_receive(:api_post)
+
+      expect do
+        client.composite_tree('Account', { attributes: { type: 'Account' } })
+      end.to raise_error(ArgumentError, /Array/)
+    end
+
     it "should raise when there is nothing to send" do
       client.should_not_receive(:api_post)
 

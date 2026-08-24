@@ -10,7 +10,9 @@ module Restforce
       define_verbs :post
 
       # Salesforce accepts up to 200 records across all the trees in one
-      # request, nested no more than five levels deep.
+      # request, nested no more than five levels deep. SObjectCollectionAPI
+      # has a limit of its own that happens to be the same number - the two
+      # are unrelated and move independently.
       MAX_RECORDS = 200
       MAX_DEPTH = 5
 
@@ -32,11 +34,16 @@ module Restforce
       #     end
       #   end
       #
-      # Raises ArgumentError if given both records and a block, if there is
-      # nothing to send, or if the tree holds more than MAX_RECORDS records.
+      # Raises ArgumentError if records is not an Array, if given both records
+      # and a block, if there is nothing to send, or if the tree holds more
+      # than MAX_RECORDS records.
       #
       # Returns the Restforce::Mash response.
       def composite_tree(root, records = [])
+        unless records.is_a?(Array)
+          raise ArgumentError, 'records must be an Array of record hashes.'
+        end
+
         if block_given?
           unless records.empty?
             raise ArgumentError,

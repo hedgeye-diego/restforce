@@ -10,7 +10,9 @@ module Restforce
       define_verbs :post, :patch, :delete
 
       # The most records Salesforce accepts in one sObject Collections create,
-      # update, upsert or delete request.
+      # update, upsert or delete request. SObjectTreeAPI has a limit of its
+      # own that happens to be the same number - the two are unrelated and
+      # move independently.
       MAX_RECORDS = 200
 
       # Public: Retrieves records of one sobject type in a single request,
@@ -38,8 +40,8 @@ module Restforce
         raise ArgumentError, "fields are required" if Array(fields).empty?
 
         api_get("composite/sobjects/#{sobject_name}",
-                ids: ids.join(','),
-                fields: fields.join(',')).body
+                ids: join_for_query(ids, 'ids'),
+                fields: join_for_query(fields, 'fields')).body
       end
 
       # Public: Deletes up to 200 records in a single request.
@@ -61,14 +63,15 @@ module Restforce
       # Returns an Array of per-record results.
       def collection_delete(ids, opts = {})
         all_or_none = opts.fetch(:all_or_none, false)
-        raise ArgumentError, "ids are required" if Array(ids).empty?
+        ids = Array(ids)
+        raise ArgumentError, "ids are required" if ids.empty?
 
-        if Array(ids).length > MAX_RECORDS
+        if ids.length > MAX_RECORDS
           raise ArgumentError, "Cannot have more than #{MAX_RECORDS} records."
         end
 
         results = api_delete("composite/sobjects",
-                             ids: ids.join(','),
+                             ids: join_for_query(ids, 'ids'),
                              allOrNone: all_or_none).body
         CollectionResponse.new(results, all_or_none: all_or_none).response
       end
@@ -246,6 +249,22 @@ module Restforce
       end
 
       private
+
+      # Internal: Joins values into the comma delimited list these endpoints
+      # expect, refusing any value that already holds the delimiter. Such a
+      # value would otherwise arrive at Salesforce as two.
+      #
+      # Raises ArgumentError if any value contains a comma.
+      #
+      # Returns the String list.
+      def join_for_query(values, name)
+        offender = values.find { |value| value.to_s.include?(',') }
+        if offender
+          raise ArgumentError, "#{name} cannot contain a comma: #{offender.inspect}"
+        end
+
+        values.join(',')
+      end
 
       # Internal: Collects records from the caller's block and submits them to
       # one of the composite sObject Collections endpoints.
