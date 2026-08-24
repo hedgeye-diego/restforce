@@ -15,8 +15,11 @@ describe 'sObject Tree API', :smoke do
     result = client.composite_tree(root) do |accounts|
       accounts.add(:acc1, Name: "Restforce smoke #{SmokeHelper.nonce}")
       accounts.embed(child, 'Contact') do |contacts|
-        contacts.add(:con1, LastName: "Smith #{SmokeHelper.nonce}")
-        contacts.add(:con2, LastName: "Jones #{SmokeHelper.nonce}")
+        # FirstName is set because orgs commonly carry a validation rule
+        # requiring it, and a smoke spec should exercise the API rather than
+        # trip over local configuration.
+        contacts.add(:con1, FirstName: 'Smoke', LastName: "Smith #{SmokeHelper.nonce}")
+        contacts.add(:con2, FirstName: 'Smoke', LastName: "Jones #{SmokeHelper.nonce}")
       end
     end
 
@@ -39,15 +42,17 @@ describe 'sObject Tree API', :smoke do
     expect(result.results.map(&:referenceId)).to eq(['acc1'])
   end
 
-  # The resource is all or nothing, which is what makes composite_tree! raise
-  # by default rather than reporting on the response.
+  # The resource is all or nothing, and Salesforce signals a rejected tree with
+  # HTTP 400 rather than a 200 carrying hasErrors. Restforce's raise_error
+  # middleware turns that into a ResponseError before composite_tree returns,
+  # so the plain method raises too and composite_tree! never gets to.
   it 'creates nothing at all when one record is rejected' do
     expect do
-      client.composite_tree!(root) do |accounts|
+      client.composite_tree(root) do |accounts|
         accounts.add(:acc1, Name: "Restforce smoke #{SmokeHelper.nonce}")
         accounts.add(:acc2, Bogus_Field__c: 'nope')
       end
-    end.to raise_error(Restforce::CompositeAPIError)
+    end.to raise_error(Restforce::ResponseError)
 
     count = client.query(
       "SELECT COUNT(Id) c FROM #{root} " \

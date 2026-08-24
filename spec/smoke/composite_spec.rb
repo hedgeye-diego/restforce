@@ -37,7 +37,10 @@ describe 'Composite API', :smoke do
       subrequest.query("SELECT Id FROM #{sobject} LIMIT 1", 'q1')
     end
 
-    expect(results.first['body']).to have_key('records')
+    # The body is mashified on the way back, so a query subrequest arrives as a
+    # Restforce::Collection rather than the raw { records: [...] } hash.
+    expect(results.first['httpStatusCode']).to be(200)
+    expect(results.first['body']).to be_a(Restforce::Collection)
   end
 
   # Salesforce lists POST, PUT, PATCH, GET and DELETE as the accepted subrequest

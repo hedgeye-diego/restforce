@@ -36,12 +36,18 @@ describe 'sObject Collections API', :smoke do
   end
 
   # Salesforce documents null in the position of any id it could not return.
+  # It has to be a well formed id: an id of the wrong shape is rejected
+  # outright with MALFORMED_ID, taking the whole call with it. So the id used
+  # here is a real one that has been deleted.
   it 'returns nil in the place of an id that does not exist' do
     ids = create_two
-    missing = "#{ids.first[0..-4]}zzz"
+    gone = ids.last
+    client.destroy(sobject, gone)
+    @created.reject! { |_type, id| id == gone }
 
-    records = client.collection_get(sobject, ids + [missing], %w[Id])
+    records = client.collection_get(sobject, ids, %w[Id])
 
+    expect(records.first['Id']).to eq(ids.first)
     expect(records.last).to be_nil
   end
 
