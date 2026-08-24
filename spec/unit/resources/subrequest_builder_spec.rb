@@ -21,14 +21,14 @@ describe Restforce::Resources::SubrequestBuilder do
     it "should raise an error if one of the paramenter is not named reference_id" do
       subject.define_subrequest(:describe_layout, clazz, :get, :id)
       expect do
-        subject.new.describe_layout "ref#1", url: 'url'
+        subject.new.describe_layout "ref1", url: 'url'
       end.to raise_error(ArgumentError, /reference_id/)
     end
 
     it "should require that one of the parameters to be named reference_id" do
       subject.define_subrequest(:describe_layout, clazz, :get, :reference_id)
       expect do
-        subject.new.describe_layout "ref#1", url: 'url'
+        subject.new.describe_layout "ref1", url: 'url'
       end.not_to raise_error
     end
 
@@ -37,7 +37,7 @@ describe Restforce::Resources::SubrequestBuilder do
       instance = subject.new
       instance.stub(:options).and_return({})
       expect do
-        instance.describe_layout "ref#1", url: 'url'
+        instance.describe_layout "ref1", url: 'url'
       end.to raise_error(ArgumentError, /api_version/)
     end
 
@@ -46,15 +46,15 @@ describe Restforce::Resources::SubrequestBuilder do
         obj.opts[:url] = "#{obj.opts[:url]}/#{obj.opts[:reference_id]}/embedded"
       end
       instance = subject.new
-      instance.describe_layout("ref#1", url: "path_to")
-      expect(instance.requests.last[:url]).to eq('path_to/ref#1/embedded')
+      instance.describe_layout("ref1", url: "path_to")
+      expect(instance.requests.last[:url]).to eq('path_to/ref1/embedded')
     end
 
     describe "attributes" do
       let(:instance) { subject.new }
       before do
         subject.define_subrequest(:describe_layout, clazz, :get, :reference_id)
-        instance.describe_layout "ref#1", url: 'url'
+        instance.describe_layout "ref1", url: 'url'
       end
 
       it "should populate the reference_ids set" do
@@ -62,7 +62,7 @@ describe Restforce::Resources::SubrequestBuilder do
       end
 
       it "should populate the reference_ids with the correct id" do
-        expect(instance.reference_ids.last).to eq('ref#1')
+        expect(instance.reference_ids.last).to eq('ref1')
       end
 
       it "should populate the requests array" do
@@ -71,7 +71,7 @@ describe Restforce::Resources::SubrequestBuilder do
 
       it "should populate the requests array" do
         expect(instance.requests.last).to eq({ method: "GET",
-                                               referenceId: "ref#1",
+                                               referenceId: "ref1",
                                                url: "url" })
       end
     end

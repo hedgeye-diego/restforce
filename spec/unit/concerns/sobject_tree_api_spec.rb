@@ -162,6 +162,26 @@ describe Restforce::Concerns::SObjectTreeAPI do
       end.to raise_error(ArgumentError)
     end
 
+    describe "reference id format" do
+      it "should accept a symbol of legal characters" do
+        expect { subject.new('Account').add(:acc1, Name: 'X') }.not_to raise_error
+      end
+
+      it "should accept a leading digit" do
+        expect { subject.new('Account').add('1acc', Name: 'X') }.not_to raise_error
+      end
+
+      it "should refuse a hyphen" do
+        expect { subject.new('Account').add(:'my-ref', Name: 'X') }.
+          to raise_error(ArgumentError, /reference id/i)
+      end
+
+      it "should refuse a leading underscore" do
+        expect { subject.new('Account').add('_acc', Name: 'X') }.
+          to raise_error(ArgumentError, /reference id/i)
+      end
+    end
+
     describe "#embed" do
       it "should raise when there is no record to embed into" do
         expect do

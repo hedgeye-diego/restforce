@@ -22,6 +22,7 @@ module Restforce
 
           Restforce::Resources::Requirements.require_options(opts, :reference_id)
           Restforce::Resources::Requirements.require_options(opts, :api_version)
+          Restforce::Resources::Requirements.require_reference_id(opts[:reference_id])
 
           object = resource.new(http_method, opts)
           yield(object) if block_given?

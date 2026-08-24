@@ -125,6 +125,8 @@ module Restforce
         #
         # Returns the Array of records built so far.
         def add(reference_id, opts = {})
+          Restforce::Resources::Requirements.require_reference_id(reference_id)
+
           records << {
             attributes: { type: root, referenceId: reference_id }
           }.merge(opts)

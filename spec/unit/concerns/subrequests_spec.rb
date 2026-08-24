@@ -72,6 +72,26 @@ describe Restforce::Concerns::SubRequests do
     end
   end
 
+  describe "reference id format" do
+    subject(:subrequests) do
+      Restforce::Concerns::SubRequests::CompositeSubrequests.new(options)
+    end
+
+    %w[ref1 1ref my_ref R].each do |legal|
+      it "should accept #{legal.inspect}" do
+        expect { subrequests.find('Account', legal, '001xx') }.not_to raise_error
+      end
+    end
+
+    { 'my-ref' => 'a hyphen', '_ref' => 'a leading underscore',
+      'ref 1' => 'a space', 'ref#1' => 'a hash', '' => 'being empty' }.each do |bad, why|
+      it "should refuse #{bad.inspect}, having #{why}" do
+        expect { subrequests.find('Account', bad, '001xx') }.
+          to raise_error(ArgumentError, /reference id/i)
+      end
+    end
+  end
+
   describe Restforce::Concerns::SubRequests::UniqueNameSet do
     subject(:names) { described_class.new('reference_id') }
 

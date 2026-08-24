@@ -5,8 +5,18 @@ require 'erb'
 module Restforce
   module Resources
     # Internal: Guards against a resource being built without the opts its
-    # url needs.
+    # url needs, or with values Salesforce will not accept.
     module Requirements
+      # Salesforce documents the same rule for composite subrequests, composite
+      # graph subrequests and sObject tree records: a reference id "must start
+      # with a letter or a number" and "must not contain anything besides
+      # letters, numbers, or underscores".
+      #
+      # Base.unescape_reference_ids depends on it too - its \w character class
+      # is exactly this charset, so an id outside it silently fails to be
+      # restored after encoding and reaches Salesforce as literal text.
+      REFERENCE_ID = /\A[A-Za-z0-9][A-Za-z0-9_]*\z/
+
       module_function
 
       # Internal: Raises unless every named option is present and truthy.
@@ -16,6 +26,18 @@ module Restforce
         keys.each do |key|
           raise ArgumentError, "You must include a #{key}" unless opts[key]
         end
+      end
+
+      # Internal: Raises unless the value is a reference id Salesforce accepts.
+      #
+      # Returns nothing.
+      def require_reference_id(value)
+        return if value.to_s.match?(REFERENCE_ID)
+
+        raise ArgumentError,
+              "The reference id #{value.inspect} is invalid. It must start " \
+              "with a letter or a number, and hold nothing but letters, " \
+              "numbers and underscores."
       end
     end
 
