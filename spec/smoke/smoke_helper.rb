@@ -96,9 +96,9 @@ module SmokeHelper
   # precisely when it fails and has no ids to clean up with.
   #
   # Returns nothing.
-  def cleanup!(tracked)
+  def cleanup!(tracked, pattern = nonce)
     Array(tracked).reverse_each { |type, id| destroy_quietly(type, id) }
-    sweep!
+    sweep!(pattern)
   end
 
   def destroy_quietly(type, id)
@@ -111,11 +111,18 @@ module SmokeHelper
     warn "[smoke] could not clean up #{type} #{id}: #{e.class}"
   end
 
+  # Internal: The types a run can create, and the field carrying the nonce.
+  # Account and Contact are here unconditionally because the tree spec needs a
+  # real parent-child pair and is pinned to them regardless of SF_SOBJECT.
+  def swept_types
+    { sobject => 'Name', 'Account' => 'Name', 'Contact' => 'LastName' }
+  end
+
   # Internal: Deletes anything still carrying this example's nonce.
-  def sweep!
-    { sobject => 'Name', 'Contact' => 'LastName' }.each do |type, field|
+  def sweep!(pattern = nonce)
+    swept_types.each do |type, field|
       client.query(
-        "SELECT Id FROM #{type} WHERE #{field} LIKE '%#{nonce}%'"
+        "SELECT Id FROM #{type} WHERE #{field} LIKE '%#{pattern}%'"
       ).each { |record| destroy_quietly(type, record.Id) }
     rescue StandardError
       # the org may not have this object, or the field may not be queryable

@@ -22,3 +22,20 @@ task :smoke do
 end
 
 task default: [:spec]
+
+desc "Delete every record a smoke run may have left behind"
+task :smoke_clean do
+  ENV['RESTFORCE_SMOKE'] = '1'
+  require_relative 'spec/smoke/smoke_helper'
+
+  reason = SmokeHelper.unavailable_reason
+  abort("cannot connect: #{reason}") if reason
+
+  # Everything smoke specs create is named "Restforce smoke <nonce>" or, for
+  # contacts, "<Surname> <nonce>". Sweeping the shared prefix catches strays a
+  # killed run left behind, whatever their nonce was.
+  ['Restforce smoke', 'Restforce renamed', 'Restforce updated'].each do |prefix|
+    SmokeHelper.sweep!(prefix)
+  end
+  puts "swept"
+end

@@ -94,3 +94,30 @@ failing the run, so a cleanup problem never masks the result of the test.
 
 Because names are scoped per example, a run that dies half way through cannot
 affect the next one. Re-running is safe.
+
+### What can still leave something behind
+
+Three cases, none of which the hooks can reach:
+
+- **The process is killed** — Ctrl-C, a crash, a dropped connection. RSpec's
+  after hook never runs, so the in-flight example's records stay.
+- **Cleanup itself fails** — no permission, a locked record, the org
+  unreachable. It warns and moves on rather than failing the run.
+- **Authentication expires mid-run**, so the sweep cannot query.
+
+For any of those:
+
+```sh
+SF_OAUTH_TOKEN=... SF_INSTANCE_URL=... bundle exec rake smoke_clean
+```
+
+which deletes everything named `Restforce smoke`, `Restforce renamed` or
+`Restforce updated` across Account, Contact and `SF_SOBJECT`, whatever nonce it
+carried. Safe to run any time — it only matches names these specs create.
+
+### Deleted, not purged
+
+`destroy` is a Salesforce delete, so records go to the **Recycle Bin** rather
+than disappearing. They leave SOQL results immediately and are purged
+automatically, but they exist and count against storage until then. Empty the
+bin from Setup if that matters to you.
