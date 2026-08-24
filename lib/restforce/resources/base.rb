@@ -24,6 +24,18 @@ module Restforce
         @opts = opts
       end
 
+      # Both are read straight out of opts rather than through method_missing,
+      # which raises NameError for a missing key and would pre-empt the nil
+      # check in to_request. build_option_url is what guarantees they are
+      # there by the time a subrequest is built.
+      def reference_id
+        opts[:reference_id]
+      end
+
+      def url
+        opts[:url]
+      end
+
       def to_request
         if reference_id.nil?
           raise ArgumentError, 'Must pass a reference id to be used as a subrequest.'
@@ -70,12 +82,15 @@ module Restforce
         # Internal: The opts a subrequest must carry before its url can be
         # built. Subclasses override this with the segments their .path needs.
         #
-        # The base resource has no .path of its own, and takes its url from
-        # the caller instead.
+        # The base resource has no .path, so it can only get a url from its
+        # caller - define_generic_subrequest sets one in the block it runs
+        # ahead of build_option_url. Requiring :url here turns forgetting that
+        # block into an ArgumentError at build time, rather than a nil url
+        # travelling all the way to Salesforce.
         #
         # Returns an Array of Symbol option names.
         def required_options
-          []
+          [:url]
         end
 
         # Internal: The opts handed to .path, in positional order. Defaults to
