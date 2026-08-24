@@ -5,7 +5,7 @@ module Restforce
     module SubrequestBuilder
       def define_subrequest(subrequest_method, clazz, http_method, *params)
         define_method subrequest_method do |*args|
-          clazz = clazz.is_a?(Class) ? clazz : Object.const_get(clazz)
+          clazz = Object.const_get(clazz) unless clazz.is_a?(Class)
           opts = {}
           params.each_with_index do |el, idx|
             opts[el] = args[idx]
@@ -59,10 +59,10 @@ module Restforce
         when :post
           :create
         when :patch
-          if (params & %i[field_name field_value]).empty?
-            :update
-          else
+          if params.intersect?(%i[field_name field_value])
             :upsert
+          else
+            :update
           end
         else
           http_method

@@ -503,8 +503,8 @@ module Restforce
 
       # Internal: Ensures that the `api_version` set for the Restforce client is at least
       # the provided version before performing a particular action
-      def version_guard(version, &block)
-        Restforce::Concerns::API.version_guard(version, options[:api_version], &block)
+      def version_guard(version, &)
+        Restforce::Concerns::API.version_guard(version, options[:api_version], &)
       end
 
       def extract_case_insensitive_string_or_symbol_key_from_hash!(hash, key)

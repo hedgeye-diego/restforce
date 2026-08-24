@@ -30,10 +30,10 @@ module Restforce
       #           [#<Restforce::Mash graphId="g1"
       #             graphResponse=#<Restforce::Mash …
 
-      def composite_graph(opts = {}, &block)
+      def composite_graph(opts = {}, &)
         composite = CompositeGraph.new(options)
         composite.validate!
-        composite.yield_builder(&block)
+        composite.yield_builder(&)
 
         return composite.to_hash if opts[:dry_run]
 

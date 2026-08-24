@@ -51,8 +51,8 @@ module Restforce
         CollectionResponse.new(results, all_or_none: all_or_none).response
       end
 
-      def collection_create!(opts = {}, &block)
-        collection_create(opts.merge(all_or_none: true), &block)
+      def collection_create!(opts = {}, &)
+        collection_create(opts.merge(all_or_none: true), &)
       end
 
       def collection_update(opts = {})
@@ -73,8 +73,8 @@ module Restforce
         CollectionResponse.new(results, all_or_none: all_or_none).response
       end
 
-      def collection_update!(opts = {}, &block)
-        collection_update(opts.merge(all_or_none: true), &block)
+      def collection_update!(opts = {}, &)
+        collection_update(opts.merge(all_or_none: true), &)
       end
 
       def collection_upsert(sobject_type, field_name, opts = {})
@@ -95,8 +95,8 @@ module Restforce
         CollectionResponse.new(results, all_or_none: all_or_none).response
       end
 
-      def collection_upsert!(sobject_type, field_name, opts = {}, &block)
-        collection_upsert(sobject_type, field_name, opts.merge(all_or_none: true), &block)
+      def collection_upsert!(sobject_type, field_name, opts = {}, &)
+        collection_upsert(sobject_type, field_name, opts.merge(all_or_none: true), &)
       end
 
       class CollectionResponse

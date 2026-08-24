@@ -51,7 +51,7 @@ module Restforce
         # I suspect they look for reference_ids before decoding the url
         def unescape_reference_ids(str)
           str.gsub(/%40%7B([\w.%]+)%7D/) do
-            "@{#{::Regexp.last_match(1).gsub(/%5B/, '[').gsub(/%5D/, ']')}}"
+            "@{#{::Regexp.last_match(1).gsub('%5B', '[').gsub('%5D', ']')}}"
           end
         end
 
@@ -74,7 +74,7 @@ module Restforce
         end
       end
 
-      def method_missing(method, *args, &block)
+      def method_missing(method, *args, &)
         if opts&.key?(method)
           opts[method]
         else
