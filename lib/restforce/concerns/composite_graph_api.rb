@@ -8,8 +8,8 @@ module Restforce
       extend Restforce::Concerns::Verbs
       define_verbs :post
 
-      # You can debug your output before committing to it by passing `debug: true`
-      #   result = client.composite_graph(debug: true) do |graphs|
+      # To see the request without sending it, use composite_graph_request
+      #   result = client.composite_graph_request do |graphs|
       #     graphs.graph('g1') do |subrequest|
       #       subrequest.find('Contact', 'c1', 'xxx00000CuC7aAAF')
       #     end
@@ -30,12 +30,8 @@ module Restforce
       #           [#<Restforce::Mash graphId="g1"
       #             graphResponse=#<Restforce::Mash …
 
-      def composite_graph(opts = {}, &)
-        composite = CompositeGraph.new(options)
-        composite.yield_builder(&)
-        composite.validate!
-
-        return composite.to_hash if opts[:dry_run]
+      def composite_graph(&)
+        composite = build_composite_graph(&)
 
         response = api_post('composite/graph', composite.to_json)
         results = response.body
@@ -43,6 +39,43 @@ module Restforce
           graph.isSuccessful == false
         end
         results
+      end
+
+      # Public: Builds the request body composite_graph would post, without
+      # sending anything. Validates exactly as composite_graph does, so a
+      # request over the graph or node limit raises here too.
+      #
+      # Yields a GraphsBuilder to collect the graphs.
+      #
+      # Examples
+      #
+      #   client.composite_graph_request do |graphs|
+      #     graphs.graph('g1') do |subrequest|
+      #       subrequest.find('Contact', 'c1', 'xxx00000CuC7aAAF')
+      #     end
+      #   end
+      #   # => { graphs: [{ graphId: 'g1',
+      #   #                 compositeRequest: [{ method: 'GET',
+      #   #                                      url: '/services/data/…',
+      #   #                                      referenceId: 'c1' }] }] }
+      #
+      # Returns the Hash body that would be posted.
+      def composite_graph_request(&)
+        build_composite_graph(&).to_hash
+      end
+
+      private
+
+      # Internal: Collects the caller's graphs and validates them. Shared by
+      # composite_graph and composite_graph_request so both validate
+      # identically.
+      #
+      # Returns the CompositeGraph.
+      def build_composite_graph(&)
+        composite = CompositeGraph.new(options)
+        composite.yield_builder(&)
+        composite.validate!
+        composite
       end
 
       class CompositeGraph

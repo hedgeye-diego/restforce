@@ -28,6 +28,13 @@ describe Restforce::Concerns::CompositeGraphAPI do
     }
   end
 
+  let(:max_graphs) do
+    Restforce::Concerns::CompositeGraphAPI::CompositeGraph::MAX_GRAPH_COUNT
+  end
+  let(:max_nodes) do
+    Restforce::Concerns::CompositeGraphAPI::CompositeGraph::MAX_NODE_COUNT
+  end
+
   before do
     client.should_receive(:options).and_return(api_version: 50.0)
   end
@@ -62,13 +69,6 @@ describe Restforce::Concerns::CompositeGraphAPI do
   end
 
   context "when the built request exceeds Salesforce's limits" do
-    let(:max_graphs) do
-      Restforce::Concerns::CompositeGraphAPI::CompositeGraph::MAX_GRAPH_COUNT
-    end
-    let(:max_nodes) do
-      Restforce::Concerns::CompositeGraphAPI::CompositeGraph::MAX_NODE_COUNT
-    end
-
     it "should raise an ArgumentError when too many graphs are built" do
       client.should_not_receive(:api_post)
 
@@ -92,15 +92,31 @@ describe Restforce::Concerns::CompositeGraphAPI do
     end
   end
 
-  context "in dry run mode" do
-    it "should return a hash" do
-      debug_output = client.composite_graph(dry_run: true) do |builder|
+  describe "#composite_graph_request" do
+    it "should return the body that would be posted" do
+      body = client.composite_graph_request do |builder|
         builder.graph('g1') do |subrequest|
           subrequest.find('Contact', 'c1', 'xxx')
         end
       end
 
-      expect(debug_output).to eq(expected_output)
+      expect(body).to eq(expected_output)
+    end
+
+    it "should not send a request" do
+      client.should_not_receive(:api_post)
+
+      client.composite_graph_request do |builder|
+        builder.graph('g1') { |subrequest| subrequest.find('Contact', 'c1', 'xxx') }
+      end
+    end
+
+    it "should still raise when too many graphs are built" do
+      expect do
+        client.composite_graph_request do |builder|
+          (max_graphs + 1).times { |i| builder.graph("g#{i}") }
+        end
+      end.to raise_error(ArgumentError)
     end
   end
 end

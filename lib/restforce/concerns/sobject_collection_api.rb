@@ -96,8 +96,6 @@ module Restforce
       # opts - The Hash options used to refine the request.
       #        :all_or_none - If true, the entire request rolls back when any
       #                       record fails. (default: false)
-      #        :dry_run     - If true, returns the records that would be sent
-      #                       without making a request. (default: false)
       #
       # Yields a RecordsBuilder to collect the records to create.
       #
@@ -114,8 +112,7 @@ module Restforce
       # Raises Restforce::ResponseError if :all_or_none is set and any record
       # failed.
       #
-      # Returns an Array of per-record results, or the Array of built records
-      # when :dry_run is set.
+      # Returns an Array of per-record results.
       def collection_create(opts = {}, &)
         submit_records(:api_post, 'composite/sobjects', 'created', opts, &)
       end
@@ -134,8 +131,6 @@ module Restforce
       # opts - The Hash options used to refine the request.
       #        :all_or_none - If true, the entire request rolls back when any
       #                       record fails. (default: false)
-      #        :dry_run     - If true, returns the records that would be sent
-      #                       without making a request. (default: false)
       #
       # Yields a RecordsBuilder to collect the records to update.
       #
@@ -151,8 +146,7 @@ module Restforce
       # Raises Restforce::ResponseError if :all_or_none is set and any record
       # failed.
       #
-      # Returns an Array of per-record results, or the Array of built records
-      # when :dry_run is set.
+      # Returns an Array of per-record results.
       def collection_update(opts = {}, &)
         submit_records(:api_patch, 'composite/sobjects', 'updated', opts, &)
       end
@@ -175,9 +169,6 @@ module Restforce
       # opts         - The Hash options used to refine the request.
       #                :all_or_none - If true, the entire request rolls back
       #                               when any record fails. (default: false)
-      #                :dry_run     - If true, returns the records that would
-      #                               be sent without making a request.
-      #                               (default: false)
       #
       # Yields a RecordsBuilder to collect the records to upsert.
       #
@@ -193,8 +184,7 @@ module Restforce
       # Raises Restforce::ResponseError if :all_or_none is set and any record
       # failed.
       #
-      # Returns an Array of per-record results, or the Array of built records
-      # when :dry_run is set.
+      # Returns an Array of per-record results.
       def collection_upsert(sobject_type, field_name, opts = {}, &)
         submit_records(:api_patch,
                        "composite/sobjects/#{sobject_type}/#{field_name}",
@@ -212,6 +202,50 @@ module Restforce
         collection_upsert(sobject_type, field_name, opts.merge(all_or_none: true), &)
       end
 
+      # Public: Builds the request body collection_create would post, without
+      # sending anything. Validates exactly as collection_create does, so an
+      # empty or oversized collection raises here too.
+      #
+      # opts - The Hash options used to refine the request.
+      #        :all_or_none - Carried into the body. (default: false)
+      #
+      # Yields a RecordsBuilder to collect the records.
+      #
+      # Examples
+      #
+      #   client.collection_create_request do |records|
+      #     records.add('Account', Name: 'Widget Factory')
+      #   end
+      #   # => { allOrNone: false,
+      #   #      records: [{ attributes: { type: 'Account' },
+      #   #                  Name: 'Widget Factory' }] }
+      #
+      # Returns the Hash body that would be posted.
+      def collection_create_request(opts = {}, &)
+        build_records_request('created', opts, &)
+      end
+
+      # Public: Builds the request body collection_update would post, without
+      # sending anything.
+      #
+      # See collection_create_request.
+      def collection_update_request(opts = {}, &)
+        build_records_request('updated', opts, &)
+      end
+
+      # Public: Builds the request body collection_upsert would post, without
+      # sending anything.
+      #
+      # The sobject type is accepted so the signature matches
+      # collection_upsert - copying a call and appending _request should not
+      # silently shift the arguments - but it identifies the endpoint rather
+      # than anything in the body, so it does not appear in the result.
+      #
+      # See collection_create_request.
+      def collection_upsert_request(_sobject_type, field_name, opts = {}, &)
+        build_records_request('upserted', opts, RecordsBuilder.new(field_name.to_sym), &)
+      end
+
       private
 
       # Internal: Collects records from the caller's block and submits them to
@@ -222,15 +256,26 @@ module Restforce
       # action      - Past tense name of the operation ('created', 'updated',
       #               'upserted'), used in the error raised for an empty
       #               collection.
-      # opts        - Supports :all_or_none and :dry_run.
+      # opts        - Supports :all_or_none.
       # builder     - The RecordsBuilder yielded to the caller's block.
       #
       # Returns the results, having raised on a failed all_or_none request.
       def submit_records(http_method, path, action, opts,
-                         builder = RecordsBuilder.new)
-        all_or_none = opts.fetch(:all_or_none, false)
+                         builder = RecordsBuilder.new, &)
+        body = build_records_request(action, opts, builder, &)
+        results = send(http_method, path, body).body
+        CollectionResponse.new(results, all_or_none: body[:allOrNone]).response
+      end
+
+      # Internal: Collects the caller's records and validates them, returning
+      # the request body without sending anything. Shared by the command
+      # methods and the *_request queries, so both validate identically.
+      #
+      # Raises ArgumentError if the collection is empty or oversized.
+      #
+      # Returns the Hash body that would be posted.
+      def build_records_request(action, opts, builder = RecordsBuilder.new)
         yield(builder)
-        return builder.records if opts[:dry_run]
 
         if builder.records.empty?
           raise ArgumentError, "There are no records to be #{action}"
@@ -240,9 +285,7 @@ module Restforce
           raise ArgumentError, "Cannot have more than #{MAX_RECORDS} records."
         end
 
-        results = send(http_method, path,
-                       { allOrNone: all_or_none, records: builder.records }).body
-        CollectionResponse.new(results, all_or_none: all_or_none).response
+        { allOrNone: opts.fetch(:all_or_none, false), records: builder.records }
       end
 
       class CollectionResponse

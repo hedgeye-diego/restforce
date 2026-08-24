@@ -219,6 +219,63 @@ describe Restforce::Concerns::SObjectCollectionAPI do
     end
   end
 
+  shared_examples_for "a collection request query" do |method, past_tense, *args|
+    it "should return the body that would be posted" do
+      body = client.send(method, *args) do |records|
+        records.add('Account', Name: 'Widget Factory')
+      end
+
+      expect(body).to eq(
+        {
+          allOrNone: false,
+          records: [{ attributes: { type: 'Account' }, Name: 'Widget Factory' }]
+        }
+      )
+    end
+
+    it "should carry all_or_none into the body" do
+      body = client.send(method, *[args, { all_or_none: true }].flatten.compact) do |r|
+        r.add('Account', Name: 'Widget Factory')
+      end
+
+      expect(body[:allOrNone]).to be(true)
+    end
+
+    it "should not send a request" do
+      client.should_not_receive(:api_post)
+      client.should_not_receive(:api_patch)
+
+      client.send(method, *args) { |r| r.add('Account', Name: 'Widget Factory') }
+    end
+
+    it "should still raise when there are no records" do
+      expect do
+        client.send(method, *args) { |records| records }
+      end.to raise_error(ArgumentError, "There are no records to be #{past_tense}")
+    end
+
+    it "should still raise when there are too many records" do
+      expect do
+        client.send(method, *args) do |records|
+          (max_records + 1).times { records.add('Account', Name: 'Widget Factory') }
+        end
+      end.to raise_error(ArgumentError, /#{max_records}/)
+    end
+  end
+
+  describe "#collection_create_request" do
+    it_behaves_like "a collection request query", :collection_create_request, 'created'
+  end
+
+  describe "#collection_update_request" do
+    it_behaves_like "a collection request query", :collection_update_request, 'updated'
+  end
+
+  describe "#collection_upsert_request" do
+    it_behaves_like "a collection request query",
+                    :collection_upsert_request, 'upserted', 'Account', 'Name'
+  end
+
   describe Restforce::Concerns::SObjectCollectionAPI::RecordsBuilder do
     subject { Restforce::Concerns::SObjectCollectionAPI::RecordsBuilder }
     describe "#add" do
