@@ -1,25 +1,57 @@
 # frozen_string_literal: true
 
+require 'set'
+
 require 'restforce/concerns/verbs'
 
 module Restforce
   module Concerns
     module SubRequests
+      # Internal: An ordered collection that refuses duplicates, so a name
+      # reused within one request is caught while the request is being built
+      # rather than by Salesforce once it is sent.
       class UniqueNameSet
+        include Enumerable
         extend Forwardable
         def_delegators :@values, :size, :empty?, :length, :each, :first, :last, :[]
 
         def initialize(name)
           @name = name
           @values = []
-          @keys = {}
+          @seen = Set.new
         end
 
-        def <<(val)
-          raise ArgumentError, "The #{@name} #{val} is already in use." if @keys.key?(val)
+        def <<(value)
+          unless @seen.add?(value)
+            raise ArgumentError, "The #{@name} #{value} is already in use."
+          end
 
-          @values << val
-          @keys[val] = true
+          @values << value
+          self
+        end
+      end
+
+      # Internal: What the methods SubrequestBuilder generates are called on.
+      # They need somewhere to put each built subrequest and the api version
+      # to build it with, and this is the whole of that contract - the
+      # generated methods reach for record_subrequest and options, never for
+      # instance variables of their own.
+      class Base
+        attr_reader :options, :requests, :reference_ids
+
+        def initialize(options)
+          @options = options
+          @requests = []
+          @reference_ids = UniqueNameSet.new('reference_id')
+        end
+
+        # Internal: Files one built subrequest, rejecting a reference id that
+        # has already been used in this request.
+        #
+        # Returns the Array of requests built so far.
+        def record_subrequest(reference_id, request)
+          reference_ids << reference_id
+          requests << request
         end
       end
 
@@ -76,10 +108,14 @@ module Restforce
         #                 { http_headers:
         #                   { "If-Modified-Since" => "Tue, 31 May 2016 18:00:00 GMT" },
         #                 }
-        define_subrequest :update,
+        define_subrequest :update_by_id,
                           'Restforce::Resources::SObjectRows',
                           :patch,
                           :sobject_name, :reference_id, :id
+
+        # CompositeSubrequests replaces update with an attrs based version;
+        # everywhere else the two are the same call.
+        alias update update_by_id
 
         # subrequest.find_by(sobject_name, reference_id, field_value, field_name,
         #                    opts = {})
@@ -138,26 +174,13 @@ module Restforce
                           :sobject_name, :reference_id, :field_value, :field_name
       end
 
-      class GraphSubrequests
-        extend Restforce::Resources::SubrequestBuilder
+      class GraphSubrequests < Base
         include BasicSubrequests
-        attr_reader :options, :requests, :reference_ids
-
-        def initialize(options)
-          @options = options
-          @requests = []
-        end
       end
 
-      class CompositeSubrequests
+      class CompositeSubrequests < Base
         extend Restforce::Resources::SubrequestBuilder
         include BasicSubrequests
-        attr_reader :options, :requests, :reference_ids
-
-        def initialize(options)
-          @options = options
-          @requests = []
-        end
 
         # Public: Finds a single record and returns all fields.
         #
@@ -236,24 +259,23 @@ module Restforce
                            "#{obj.opts[:sobject_name]}/describe/layouts/"
         end
 
-        alias update_by_id update
         def update(sobject, reference_id, attrs)
-          id = attrs.fetch(attrs.keys.find { |k, _v| k.to_s.casecmp?('id') }, nil)
+          id = attrs[attrs.keys.find { |key| key.to_s.casecmp?('id') }]
           raise ArgumentError, 'Id field missing from attrs.' unless id
 
-          attrs_without_id = attrs.reject { |k, _v| k.to_s.casecmp?('id') }
+          attrs_without_id = attrs.reject { |key, _value| key.to_s.casecmp?('id') }
           update_by_id(sobject, reference_id, id, body: attrs_without_id)
         end
 
         def upsert(sobject, reference_id, ext_field, attrs)
           raise ArgumentError, 'External id field missing.' unless ext_field
 
-          ext_id = attrs.fetch(attrs.keys.find do |k, _v|
-            k.to_s.casecmp?(ext_field.to_s)
-          end, nil)
+          ext_id = attrs[attrs.keys.find { |key| key.to_s.casecmp?(ext_field.to_s) }]
           raise ArgumentError, 'External id missing from attrs.' unless ext_id
 
-          attrs_without_ext_id = attrs.reject { |k, _v| k.to_s.casecmp?(ext_field) }
+          attrs_without_ext_id = attrs.reject do |key, _value|
+            key.to_s.casecmp?(ext_field)
+          end
           upsert_by(sobject, reference_id, ext_id, ext_field, body: attrs_without_ext_id)
         end
       end

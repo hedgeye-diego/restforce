@@ -3,13 +3,14 @@
 require 'spec_helper'
 
 describe Restforce::Resources::SubrequestBuilder do
+  # The generated methods are only usable on something that satisfies the
+  # SubRequests::Base contract, so the host under test is a real one.
   subject do
-    Class.new do
+    Class.new(Restforce::Concerns::SubRequests::Base) do
       extend Restforce::Resources::SubrequestBuilder
-      attr_accessor :reference_ids, :requests
 
-      def options
-        { api_version: 50.0 }
+      def initialize(options = { api_version: 50.0 })
+        super
       end
     end
   end

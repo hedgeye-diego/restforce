@@ -5,7 +5,11 @@ module Restforce
     module SubrequestBuilder
       def define_subrequest(subrequest_method, clazz, http_method, *params)
         define_method subrequest_method do |*args|
-          clazz = Object.const_get(clazz) unless clazz.is_a?(Class)
+          # Resolved into a local rather than reassigned: clazz is captured
+          # from the enclosing define_subrequest, so writing to it would
+          # rewrite it for every later call to this method.
+          resource = clazz.is_a?(Class) ? clazz : Object.const_get(clazz)
+
           opts = {}
           params.each_with_index do |el, idx|
             opts[el] = args[idx]
@@ -19,16 +23,11 @@ module Restforce
           Restforce::Resources::Requirements.require_options(opts, :reference_id)
           Restforce::Resources::Requirements.require_options(opts, :api_version)
 
-          @reference_ids ||= Restforce::Concerns::
-                               SubRequests::UniqueNameSet.new("reference_id")
-          @reference_ids << opts[:reference_id]
-
-          object = clazz.new(http_method, opts)
+          object = resource.new(http_method, opts)
           yield(object) if block_given?
-          object.opts = clazz.build_option_url(object.opts)
+          object.opts = resource.build_option_url(object.opts)
 
-          @requests ||= []
-          @requests << object.to_request
+          record_subrequest(opts[:reference_id], object.to_request)
         end
       end
 
