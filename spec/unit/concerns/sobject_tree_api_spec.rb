@@ -159,7 +159,7 @@ describe Restforce::Concerns::SObjectTreeAPI do
     it "takes a root" do
       expect do
         subject.new
-      end.to raise_error
+      end.to raise_error(ArgumentError)
     end
 
     describe "#embed" do

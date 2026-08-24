@@ -22,7 +22,7 @@ describe Restforce::Resources::SubrequestBuilder do
       subject.define_subrequest(:describe_layout, clazz, :get, :id)
       expect do
         subject.new.describe_layout "ref#1", url: 'url'
-      end.to raise_error
+      end.to raise_error(ArgumentError, /reference_id/)
     end
 
     it "should require that one of the parameters to be named reference_id" do
@@ -38,7 +38,7 @@ describe Restforce::Resources::SubrequestBuilder do
       instance.stub(:options).and_return({})
       expect do
         instance.describe_layout "ref#1", url: 'url'
-      end.to raise_error
+      end.to raise_error(ArgumentError, /api_version/)
     end
 
     it "should allow to pass a block to customize stuff" do

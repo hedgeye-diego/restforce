@@ -9,6 +9,11 @@ module Restforce
 
       define_verbs :post, :patch, :delete
 
+      # sObject Collections is documented as "available in API version 42.0
+      # and later". SObjectTreeAPI has no guard of its own because Salesforce
+      # does not state a floor for that resource.
+      MIN_API_VERSION = 42.0
+
       # The most records Salesforce accepts in one sObject Collections create,
       # update, upsert or delete request. SObjectTreeAPI has a limit of its
       # own that happens to be the same number - the two are unrelated and
@@ -36,6 +41,7 @@ module Restforce
       #
       # Returns an Array of records, in the order the ids were given.
       def collection_get(sobject_name, ids, fields)
+        guard_api_version!
         raise ArgumentError, "ids are required" if Array(ids).empty?
         raise ArgumentError, "fields are required" if Array(fields).empty?
 
@@ -62,6 +68,7 @@ module Restforce
       #
       # Returns an Array of per-record results.
       def collection_delete(ids, opts = {})
+        guard_api_version!
         all_or_none = opts.fetch(:all_or_none, false)
         ids = Array(ids)
         raise ArgumentError, "ids are required" if ids.empty?
@@ -250,6 +257,18 @@ module Restforce
 
       private
 
+      # Internal: Refuses the call when the client is pinned to an api version
+      # older than the resource, so it fails here with something readable
+      # rather than at Salesforce with a 404.
+      #
+      # Raises Restforce::APIVersionError if the version is too old.
+      #
+      # Returns nothing.
+      def guard_api_version!
+        Restforce::Concerns::API.version_guard(MIN_API_VERSION,
+                                               options[:api_version])
+      end
+
       # Internal: Joins values into the comma delimited list these endpoints
       # expect, refusing any value that already holds the delimiter. Such a
       # value would otherwise arrive at Salesforce as two.
@@ -293,6 +312,7 @@ module Restforce
       #
       # Returns the Hash body that would be posted.
       def build_records_request(action, opts, builder = RecordsBuilder.new)
+        guard_api_version!
         yield(builder)
 
         if builder.records.empty?

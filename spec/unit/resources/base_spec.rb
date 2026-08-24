@@ -51,6 +51,20 @@ describe Restforce::Resources::Base do
     end
   end
 
+  describe "an option that is not there" do
+    it "should raise rather than answer nil" do
+      resource = described_class.new(:get, url: '/x')
+
+      expect { resource.send(:no_such_option) }.to raise_error(NameError)
+    end
+
+    it "should answer an option that is there" do
+      resource = described_class.new(:get, url: '/x', body: { Name: 'Widget' })
+
+      expect(resource.send(:body)).to eq(Name: 'Widget')
+    end
+  end
+
   describe "visibility" do
     it "should keep the method_missing hooks private" do
       expect(described_class.private_instance_methods).

@@ -5,10 +5,46 @@ require 'hashie/mash'
 
 describe Restforce::Concerns::SObjectCollectionAPI do
   let(:endpoint) { 'composite/sobjects' }
+  let(:min_version) { Restforce::Concerns::SObjectCollectionAPI::MIN_API_VERSION }
   let(:max_records) { Restforce::Concerns::SObjectCollectionAPI::MAX_RECORDS }
 
-  before do
-    # client.should_receive(:options).and_return(api_version: 38.0)
+  # The concern reads options[:api_version] for its version guard. Defining it
+  # on the class keeps `client` lazy, so the nested describes for RecordsBuilder
+  # and CollectionResponse - whose described_class is a Class, not this module -
+  # never try to build one.
+  let(:api_version) { min_version }
+  let(:klass) do
+    version = api_version
+    Class.new do
+      include Restforce::Concerns::SObjectCollectionAPI
+      define_method(:options) { { api_version: version } }
+    end
+  end
+
+  describe "the api version floor" do
+    let(:api_version) { min_version - 1 }
+
+    it "should refuse collection_get" do
+      expect { client.collection_get('Contact', %w[1], %w[Id]) }.
+        to raise_error(Restforce::APIVersionError)
+    end
+
+    it "should refuse collection_delete" do
+      expect { client.collection_delete(%w[1]) }.
+        to raise_error(Restforce::APIVersionError)
+    end
+
+    it "should refuse the writes" do
+      expect do
+        client.collection_create { |r| r.add('Account', Name: 'X') }
+      end.to raise_error(Restforce::APIVersionError)
+    end
+
+    it "should refuse the request queries too" do
+      expect do
+        client.collection_create_request { |r| r.add('Account', Name: 'X') }
+      end.to raise_error(Restforce::APIVersionError)
+    end
   end
 
   describe "#collection_get" do
@@ -93,9 +129,11 @@ describe Restforce::Concerns::SObjectCollectionAPI do
     end
 
     it "should NOT raise an ArgumentError when ids are passed" do
-      expect do
-        client.collection_delete([1, 2, 3])
-      end.not_to raise_error(ArgumentError)
+      client.
+        should_receive(:api_delete).
+        and_return(Hashie::Mash.new(body: successful_response))
+
+      expect { client.collection_delete([1, 2, 3]) }.not_to raise_error
     end
 
     it "should refuse an id that would split into two" do
@@ -325,7 +363,7 @@ describe Restforce::Concerns::SObjectCollectionAPI do
         builder = subject.new(:Foo)
         expect do
           builder.add('Account', id: '123')
-        end.to raise_error
+        end.to raise_error(ArgumentError, /Missing required field Foo/)
       end
 
       it "should NOT raise an error if a required field is passed in" do
