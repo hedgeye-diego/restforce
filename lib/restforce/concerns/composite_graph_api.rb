@@ -33,10 +33,12 @@ module Restforce
       def composite_graph(&)
         composite = build_composite_graph(&)
 
-        response = api_post('composite/graph', composite.to_json)
-        results = response.body
-        results[:has_errors] = results.graphs.any? do |graph|
-          graph.isSuccessful == false
+        results = api_post('composite/graph', composite.to_json).body
+        # Anything other than an explicit success counts as an error, so a
+        # response missing isSuccessful surfaces rather than reading as a
+        # silent success.
+        results[:has_errors] = (results[:graphs] || []).any? do |graph|
+          !graph[:isSuccessful]
         end
         results
       end
@@ -84,12 +86,15 @@ module Restforce
         MAX_GRAPH_COUNT = 75
         MAX_NODE_COUNT  = 500
 
+        # The Composite Graph resource was introduced in the Salesforce API
+        # v50.0.
+        MIN_API_VERSION = 50.0
+
         def initialize(options = {})
-          Restforce::Concerns::API.version_guard(50.0,
-                                                 options[:api_version]) do
-            @options = options
-            @builder = GraphsBuilder.new(options)
-          end
+          Restforce::Concerns::API.version_guard(MIN_API_VERSION,
+                                                 options[:api_version])
+          @options = options
+          @builder = GraphsBuilder.new(options)
         end
 
         def validate!

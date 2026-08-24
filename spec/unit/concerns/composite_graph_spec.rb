@@ -14,8 +14,13 @@ describe Restforce::Concerns::CompositeGraphAPI::CompositeGraph do
       expect { subject.new(api_version: 20) }.to raise_error(Restforce::APIVersionError)
     end
 
-    it "should NOT raise an APIVersionError when version is not met" do
-      expect { valid_subject }.not_to raise_error(Restforce::APIVersionError)
+    it "should NOT raise an APIVersionError when the version is met" do
+      expect { subject.new(api_version: subject::MIN_API_VERSION) }.not_to raise_error
+    end
+
+    it "should build its graphs when the version is met" do
+      expect(subject.new(api_version: 50).builder).
+        to be_a(Restforce::Concerns::CompositeGraphAPI::GraphsBuilder)
     end
   end
 

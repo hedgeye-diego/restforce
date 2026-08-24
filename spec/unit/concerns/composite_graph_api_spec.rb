@@ -92,6 +92,30 @@ describe Restforce::Concerns::CompositeGraphAPI do
     end
   end
 
+  context "when the response is not shaped as expected" do
+    def post_and_return(body)
+      client.
+        should_receive(:api_post).
+        and_return(Hashie::Mash.new(body: body))
+
+      client.composite_graph do |builder|
+        builder.graph('g1') { |subrequest| subrequest.find('Contact', 'c1', 'xxx') }
+      end
+    end
+
+    it "should treat a graph with no isSuccessful as an error" do
+      result = post_and_return(graphs: [{ graphId: 'g1' }])
+
+      expect(result.has_errors).to be(true)
+    end
+
+    it "should not explode when there are no graphs in the response" do
+      result = post_and_return(irrelevant: true)
+
+      expect(result.has_errors).to be(false)
+    end
+  end
+
   describe "#composite_graph_request" do
     it "should return the body that would be posted" do
       body = client.composite_graph_request do |builder|
