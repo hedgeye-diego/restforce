@@ -71,7 +71,6 @@ module Restforce
                              ids: ids.join(','),
                              allOrNone: all_or_none).body
         CollectionResponse.new(results, all_or_none: all_or_none).response
-        results
       end
 
       # Public: Deletes records, rolling the whole request back if any one of

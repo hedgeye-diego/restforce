@@ -88,6 +88,24 @@ describe Restforce::Concerns::SObjectCollectionAPI do
       end.to raise_error(ArgumentError, /#{max_records}/)
     end
 
+    it "should raise when all_or_none is set and a record failed" do
+      client.
+        should_receive(:api_delete).
+        and_return(Hashie::Mash.new(body: unsuccessful_response))
+
+      expect do
+        client.collection_delete!([1, 2])
+      end.to raise_error(Restforce::ResponseError)
+    end
+
+    it "should return the results" do
+      client.
+        should_receive(:api_delete).
+        and_return(Hashie::Mash.new(body: successful_response))
+
+      expect(client.collection_delete([1, 2])).to eq(successful_response)
+    end
+
     it "should return the correct size when successfull" do
       client.
         should_receive(:api_delete).
@@ -213,9 +231,9 @@ describe Restforce::Concerns::SObjectCollectionAPI do
     it "should raise an error if the external_id is not present in the record" do
       expect do
         client.collection_upsert("Account", 'MyExtId__c') do |records|
-          records.add(record_attributes)
-        end.to raise_error(ArgumentError)
-      end
+          records.add('Account', Name: 'Widget Factory')
+        end
+      end.to raise_error(ArgumentError, /Missing required field MyExtId__c/)
     end
   end
 

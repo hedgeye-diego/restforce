@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 shared_examples_for 'build_option_url' do |clazz, requirements, url|
-  requirements.each_key.each do |key_to_be_removed|
+  requirements.each_key do |key_to_be_removed|
     it "should raise an error if #{key_to_be_removed} is missing" do
       expect do
         incomplete = requirements.reject { |k, _v| k == key_to_be_removed }
@@ -10,10 +10,8 @@ shared_examples_for 'build_option_url' do |clazz, requirements, url|
     end
   end
 
-  it "should NOT raise an error if api_version is missing" do
-    expect do
-      clazz.build_option_url(requirements)
-    end.not_to raise_error(ArgumentError)
+  it "should not raise when every requirement is present" do
+    expect { clazz.build_option_url(requirements) }.not_to raise_error
   end
 
   it "should bring build a url option" do

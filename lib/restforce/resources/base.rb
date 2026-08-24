@@ -4,12 +4,17 @@ require 'erb'
 
 module Restforce
   module Resources
-    class Requirements
-      class << self
-        def require_options(opts, *keys)
-          keys.each do |key|
-            raise ArgumentError, "You must include a #{key}" unless opts[key]
-          end
+    # Internal: Guards against a resource being built without the opts its
+    # url needs.
+    module Requirements
+      module_function
+
+      # Internal: Raises unless every named option is present and truthy.
+      #
+      # Returns nothing.
+      def require_options(opts, *keys)
+        keys.each do |key|
+          raise ArgumentError, "You must include a #{key}" unless opts[key]
         end
       end
     end
