@@ -74,9 +74,23 @@ field** on the object:
 particular name, so any such field works. Specs that need one and cannot find
 it skip with a message rather than failing.
 
-## Cleanup
+## Idempotency and cleanup
 
-Every spec files the ids it creates and deletes them afterwards, whatever the
-outcome. A failed cleanup warns rather than failing the run, and each run
-stamps its records with a nonce so leftovers from a previous failure never
-collide with the current one.
+Each **example** gets its own nonce, and every record it creates is named with
+it. That is per example rather than per run on purpose: three specs assert a
+record count by name, so a shared prefix would let a leak in one example fail a
+different one, and the failure would point at the wrong place.
+
+Cleanup runs whatever the outcome, in two passes:
+
+1. **Tracked ids**, deleted newest first. Covers the normal case, and deleting
+   a parent cascades to its children.
+2. **A sweep** for anything still carrying this example's nonce. Covers the
+   case that matters — an example asserting that *nothing* was created leaves
+   records behind precisely when it fails, and has no ids to clean up with.
+
+A record already gone is ignored quietly; anything else warns rather than
+failing the run, so a cleanup problem never masks the result of the test.
+
+Because names are scoped per example, a run that dies half way through cannot
+affect the next one. Re-running is safe.

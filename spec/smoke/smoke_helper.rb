@@ -77,10 +77,49 @@ module SmokeHelper
       fetch('name')
   end
 
-  # Internal: A value unique to this run, so a failed cleanup never collides
-  # with the next one.
+  # Internal: A value unique to the example being run. Per example rather than
+  # per run, because several specs assert a record count by name - if two
+  # examples shared a prefix, a leak in one would fail the other and the
+  # failure would point at the wrong place.
   def nonce
     @nonce ||= SecureRandom.hex(4)
+  end
+
+  def reset_nonce!
+    @nonce = SecureRandom.hex(4)
+  end
+
+  # Internal: Everything an example created, named with this example's nonce.
+  #
+  # Tracked ids cover the normal case. The sweep covers the one that matters:
+  # an example asserting that nothing was created, which leaves records behind
+  # precisely when it fails and has no ids to clean up with.
+  #
+  # Returns nothing.
+  def cleanup!(tracked)
+    Array(tracked).reverse_each { |type, id| destroy_quietly(type, id) }
+    sweep!
+  end
+
+  def destroy_quietly(type, id)
+    return if id.nil?
+
+    client.destroy(type, id)
+  rescue Restforce::NotFoundError
+    # already gone, usually cascaded from its parent
+  rescue StandardError => e
+    warn "[smoke] could not clean up #{type} #{id}: #{e.class}"
+  end
+
+  # Internal: Deletes anything still carrying this example's nonce.
+  def sweep!
+    { sobject => 'Name', 'Contact' => 'LastName' }.each do |type, field|
+      client.query(
+        "SELECT Id FROM #{type} WHERE #{field} LIKE '%#{nonce}%'"
+      ).each { |record| destroy_quietly(type, record.Id) }
+    rescue StandardError
+      # the org may not have this object, or the field may not be queryable
+    end
   end
 end
 
@@ -88,16 +127,14 @@ RSpec.configure do |config|
   config.before(:each, :smoke) do
     reason = SmokeHelper.unavailable_reason
     skip(reason) if reason
+
+    SmokeHelper.reset_nonce!
+    @created = []
   end
 
-  # Every spec files away the ids it creates, and they go whatever the outcome.
-  config.before(:each, :smoke) { @created = [] }
-
+  # Runs whatever the outcome, and only when the example actually reached an
+  # org - a skipped example has nothing to clean up and no client to do it with.
   config.after(:each, :smoke) do
-    Array(@created).each do |type, id|
-      SmokeHelper.client.destroy(type, id)
-    rescue StandardError => e
-      warn "[smoke] could not clean up #{type} #{id}: #{e.class}"
-    end
+    SmokeHelper.cleanup!(@created) unless SmokeHelper.unavailable_reason
   end
 end

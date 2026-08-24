@@ -20,10 +20,10 @@ describe 'sObject Tree API', :smoke do
       end
     end
 
-    result.results.each do |record|
-      type = record.referenceId.to_s.start_with?('acc') ? 'Account' : 'Contact'
-      @created << [type, record.id]
-    end
+    # Only the account is tracked: deleting it cascades to its contacts, and
+    # the sweep catches anything that does not.
+    account = result.results.find { |record| record.referenceId.to_s.start_with?('acc') }
+    @created << [root, account.id]
 
     expect(result.hasErrors).to be(false)
     expect(result.results.length).to be(3)
