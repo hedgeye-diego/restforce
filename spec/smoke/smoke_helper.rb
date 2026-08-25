@@ -64,8 +64,9 @@ module SmokeHelper
     options
   end
 
-  def describe_fields
-    @describe_fields ||= client.describe(sobject)['fields']
+  def describe_fields(type = sobject)
+    @describe_fields ||= {}
+    @describe_fields[type] ||= client.describe(type)['fields']
   end
 
   # Internal: An external id field on the sobject under test, discovered from
@@ -109,9 +110,10 @@ module SmokeHelper
   # and Name on Contact is a read only formula.
   #
   # Returns an Array of String field names.
-  def required_text_fields
-    @required_text_fields ||= begin
-      required = describe_fields.select do |field|
+  def required_text_fields(type = sobject)
+    @required_text_fields ||= {}
+    @required_text_fields[type] ||= begin
+      required = describe_fields(type).select do |field|
         field['createable'] && !field['nillable'] &&
           !field['defaultedOnCreate'] && field['type'] == 'string'
       end
@@ -121,8 +123,10 @@ module SmokeHelper
   end
 
   # Internal: The field a record's label lands in, used by the count queries.
-  def label_field
-    required_text_fields.first || 'Name'
+  # Takes a type because the tree specs need a real parent-child pair and are
+  # pinned to Account and Contact whatever SF_SOBJECT says.
+  def label_field(type = sobject)
+    required_text_fields(type).first || 'Name'
   end
 
   # Internal: Minimal attributes for creating a record of the object under
@@ -133,10 +137,14 @@ module SmokeHelper
   # of Field=Value pairs to satisfy them.
   #
   # Returns a Hash.
-  def attributes(suffix = '')
-    attrs = required_text_fields.to_h do |field|
+  def attributes(suffix = '', type = sobject)
+    attrs = required_text_fields(type).to_h do |field|
       [field.to_sym, "Restforce smoke #{nonce}#{suffix}"]
     end
+
+    # SF_EXTRA_FIELDS satisfies validation rules on the object under test, so
+    # it is not applied to the other types a spec may touch alongside it.
+    return attrs unless type == sobject
 
     ENV.fetch('SF_EXTRA_FIELDS', '').split(',').each do |pair|
       key, value = pair.split('=', 2)
