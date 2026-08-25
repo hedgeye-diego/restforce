@@ -769,8 +769,10 @@ relationship name as Salesforce knows it. The reference ids passed to `add`
 identify each record in the response.
 
 The sObject Tree resource is all or nothing: if any record is rejected, none
-are created. `composite_tree` reports that as `hasErrors` on the response,
-while `composite_tree!` raises `Restforce::CompositeAPIError`.
+are created, and Salesforce answers with an error status rather than a success
+carrying `hasErrors`. So `composite_tree` raises `Restforce::ResponseError` on
+a rejected tree, and there is no `composite_tree!` — there is no non-raising
+mode to opt out of, unlike `composite` and `composite_graph`.
 
 ### Composite Batch API
 

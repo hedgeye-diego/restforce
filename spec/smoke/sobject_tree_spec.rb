@@ -44,8 +44,9 @@ describe 'sObject Tree API', :smoke do
 
   # The resource is all or nothing, and Salesforce signals a rejected tree with
   # HTTP 400 rather than a 200 carrying hasErrors. Restforce's raise_error
-  # middleware turns that into a ResponseError before composite_tree returns,
-  # so the plain method raises too and composite_tree! never gets to.
+  # middleware turns that into a ResponseError before composite_tree returns.
+  # This is the spec that establishes it, and the reason there is no
+  # composite_tree! - see the comment in sobject_tree_api.rb.
   it 'creates nothing at all when one record is rejected' do
     expect do
       client.composite_tree(root) do |accounts|

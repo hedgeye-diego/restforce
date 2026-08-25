@@ -37,6 +37,7 @@ module Restforce
       # Raises ArgumentError if records is not an Array, if given both records
       # and a block, if there is nothing to send, or if the tree holds more
       # than MAX_RECORDS records.
+      # Raises Restforce::ResponseError if Salesforce rejected the tree.
       #
       # Returns the Restforce::Mash response.
       def composite_tree(sobject, records = [])
@@ -60,25 +61,34 @@ module Restforce
         api_post("composite/tree/#{sobject}", { records: records }.to_json).body
       end
 
-      # Public: Creates a tree and raises if Salesforce rejected it.
+      # There is deliberately no composite_tree!.
       #
-      # The sObject Tree resource is all or nothing, so a failure here means
-      # no records were created at all.
+      # Every other API in this family has one: composite!, collection_create!
+      # and composite_graph! each opt into raising on a failure that the plain
+      # form reports on the response instead. A composite_tree! would have
+      # nothing to add, because composite_tree cannot report a failure that
+      # way.
       #
-      # Raises Restforce::CompositeAPIError if the tree was rejected, and
-      # everything composite_tree raises.
+      # The sObject Tree resource is all or nothing, and Salesforce signals a
+      # rejected tree with HTTP 400 carrying hasErrors, not a 200. Restforce's
+      # raise_error middleware raises on 400...600, so the exception is thrown
+      # while the response is still in the middleware stack - composite_tree
+      # never returns, and no code here ever sees hasErrors set.
       #
-      # Returns the Restforce::Mash response.
-      def composite_tree!(sobject, records = [], &)
-        results = composite_tree(sobject, records, &)
-        return results unless results[:hasErrors]
-
-        errored = (results[:results] || []).find do |result|
-          result[:errors].is_a?(Array) && result[:errors].any?
-        end
-
-        raise CompositeAPIError.new(errored&.dig(:errors, 0, :statusCode), results)
-      end
+      # An implementation would therefore read:
+      #
+      #   results = composite_tree(...)        # raises on failure, always
+      #   return results unless results[:hasErrors]   # unreachable
+      #   raise CompositeAPIError, ...                # unreachable
+      #
+      # Verified against a live org - see spec/smoke/sobject_tree_spec.rb,
+      # which asserts the plain method raises ResponseError on a rejected tree.
+      #
+      # The asymmetry belongs to the resource, not to restforce: all-or-nothing
+      # failure is an error status, and partial-success failure is not. Graphs
+      # return 200 with per-graph isSuccessful precisely because some of the
+      # work may have committed, which is what gives composite_graph! something
+      # to do.
 
       private
 
