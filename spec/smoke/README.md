@@ -88,8 +88,30 @@ fails with `INVALID_EMAIL_ADDRESS` for exactly that reason.
 > Tick both **External ID** and **Unique**
 
 The helper finds it by attribute and type, not by name, so any such field
-works. When only a typed external id exists, the spec skips and says so rather
-than failing.
+works.
+
+### When you only have a typed external id
+
+`url_encoding_spec` has a fallback context for an org whose only external id is
+something like `Contact.Email`. Be clear about what it can and cannot tell you:
+
+| Case | Text field | Typed field |
+| --- | --- | --- |
+| space, the 2018 bug | yes | **no — an email cannot hold one** |
+| `/`, escaping its url segment | yes | only if the org's email validation allows it |
+| `@` | yes | yes |
+| `%2B` decoded strictly | — | yes |
+
+The gap matters. `CGI.escape` and `ERB::Util.url_encode` render a literal `+`
+identically as `%2B`; they diverge only on a **space**, which is precisely what
+the 2018 bug turned into a `+`. So nothing in the typed path reproduces that
+regression. It narrows the risk; it does not close it.
+
+Run it with:
+
+```sh
+SF_SOBJECT=Contact SF_EXTRA_FIELDS='FirstName=Smoke' bundle exec rake smoke
+```
 
 ## Idempotency and cleanup
 

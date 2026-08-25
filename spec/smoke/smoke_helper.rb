@@ -92,6 +92,12 @@ module SmokeHelper
       external_id_candidates.find { |field| field['type'] == 'string' }&.fetch('name')
   end
 
+  # Internal: The Salesforce type of the external id field in use - 'string'
+  # for a Text field, 'email' for Contact.Email, and so on.
+  def external_id_field_type
+    external_id_candidates.first&.fetch('type')
+  end
+
   def external_id_candidates
     describe_fields.
       reject { |field| field['name'] == 'Id' }.
