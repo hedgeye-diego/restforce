@@ -11,18 +11,27 @@ describe 'Composite Graph API', :smoke do
       SmokeHelper.api_version.to_f < 50.0
   end
 
+  # On a failed subrequest the body is an array of errors rather than the
+  # created record, so dig it out only once the graph is known to have worked.
+  def created_id(graph)
+    unless graph.isSuccessful
+      raise "graph #{graph.graphId} failed: #{graph.graphResponse.to_json}"
+    end
+
+    graph.graphResponse.compositeResponse.first.body.id
+  end
+
   it 'commits a graph and reports it successful' do
     result = client.composite_graph do |graphs|
       graphs.graph('g1') do |subrequest|
-        subrequest.create(sobject, 'made', Name: "Restforce smoke #{SmokeHelper.nonce}")
+        subrequest.create(sobject, 'made', **SmokeHelper.attributes)
       end
     end
 
-    created = result.graphs.first.graphResponse.compositeResponse.first.body.id
+    created = created_id(result.graphs.first)
     @created << [sobject, created]
 
     expect(result.hasErrors).to be(false)
-    expect(result.graphs.first.isSuccessful).to be(true)
   end
 
   # The reason to reach for graphs over composite: one graph failing must not
@@ -31,7 +40,7 @@ describe 'Composite Graph API', :smoke do
   it 'rolls back only the graph that failed' do
     result = client.composite_graph do |graphs|
       graphs.graph('good') do |subrequest|
-        subrequest.create(sobject, 'ok', Name: "Restforce smoke #{SmokeHelper.nonce}")
+        subrequest.create(sobject, 'ok', **SmokeHelper.attributes)
       end
 
       graphs.graph('bad') do |subrequest|
@@ -41,10 +50,9 @@ describe 'Composite Graph API', :smoke do
 
     good, bad = result.graphs.partition { |graph| graph.graphId == 'good' }.map(&:first)
 
-    created = good.graphResponse.compositeResponse.first.body.id
+    created = created_id(good)
     @created << [sobject, created] if created
 
-    expect(good.isSuccessful).to be(true)
     expect(bad.isSuccessful).to be(false)
     expect(result.hasErrors).to be(true)
   end
@@ -62,15 +70,15 @@ describe 'Composite Graph API', :smoke do
   it 'resolves a reference id inside a graph' do
     result = client.composite_graph do |graphs|
       graphs.graph('g1') do |subrequest|
-        subrequest.create(sobject, 'made', Name: "Restforce smoke #{SmokeHelper.nonce}")
+        subrequest.create(sobject, 'made', **SmokeHelper.attributes)
         subrequest.find(sobject, 'read', '@{made.id}')
       end
     end
 
-    responses = result.graphs.first.graphResponse.compositeResponse
-    created = responses.first.body.id
+    created = created_id(result.graphs.first)
     @created << [sobject, created]
 
+    responses = result.graphs.first.graphResponse.compositeResponse
     expect(responses.last.body.Id).to eq(created)
   end
 end

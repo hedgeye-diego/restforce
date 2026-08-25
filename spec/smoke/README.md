@@ -63,16 +63,33 @@ webmock level can rule that class of bug out — only these can.
 
 ## Org setup
 
-Most specs need nothing. The upsert and external id ones need **one custom
-field** on the object:
+Fields are read off the object's describe rather than assumed, so the specs
+follow `SF_SOBJECT` without edits: they create with whatever the object insists
+on — `Name` for Account, `LastName` for Contact, whose `Name` is a read only
+formula.
+
+Validation rules are not in the describe, so an org requiring a field the API
+does not is handled with an escape hatch:
+
+```sh
+SF_SOBJECT=Contact SF_EXTRA_FIELDS='FirstName=Smoke' bundle exec rake smoke
+```
+
+### The one field you may need to create
+
+`url_encoding_spec` upserts a value holding a space, a slash and an `@`. That
+needs an external id field of type **Text** — a typed one validates its
+contents and rejects the value before the encoding is ever exercised.
+`Contact.Email` is `idLookup` in most orgs and looks like a candidate, but
+fails with `INVALID_EMAIL_ADDRESS` for exactly that reason.
 
 > Setup → Object Manager → Account → Fields & Relationships → New
-> Type: Text, Length 100
+> Type **Text**, Length 100
 > Tick both **External ID** and **Unique**
 
-`smoke_helper.rb` finds it from the object's describe rather than expecting a
-particular name, so any such field works. Specs that need one and cannot find
-it skip with a message rather than failing.
+The helper finds it by attribute and type, not by name, so any such field
+works. When only a typed external id exists, the spec skips and says so rather
+than failing.
 
 ## Idempotency and cleanup
 

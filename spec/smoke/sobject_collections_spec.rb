@@ -13,8 +13,8 @@ describe 'sObject Collections API', :smoke do
 
   def create_two
     results = client.collection_create! do |records|
-      records.add(sobject, Name: "Restforce smoke #{SmokeHelper.nonce} a")
-      records.add(sobject, Name: "Restforce smoke #{SmokeHelper.nonce} b")
+      records.add(sobject, **SmokeHelper.attributes(' a'))
+      records.add(sobject, **SmokeHelper.attributes(' b'))
     end
     results.each { |result| @created << [sobject, result['id']] }
     results.map { |result| result['id'] }
@@ -56,11 +56,13 @@ describe 'sObject Collections API', :smoke do
 
     client.collection_update! do |records|
       ids.each_with_index do |id, i|
-        records.add(sobject, id: id, Name: "Restforce updated #{SmokeHelper.nonce} #{i}")
+        records.add(sobject, id: id,
+                             SmokeHelper.label_field.to_sym =>
+                               "Restforce updated #{SmokeHelper.nonce} #{i}")
       end
     end
 
-    expect(client.find(sobject, ids.first).Name).
+    expect(client.find(sobject, ids.first)[SmokeHelper.label_field]).
       to eq("Restforce updated #{SmokeHelper.nonce} 0")
   end
 
@@ -76,14 +78,14 @@ describe 'sObject Collections API', :smoke do
   it 'raises rather than partially applying when all_or_none is set' do
     expect do
       client.collection_create! do |records|
-        records.add(sobject, Name: "Restforce smoke #{SmokeHelper.nonce}")
+        records.add(sobject, **SmokeHelper.attributes)
         records.add(sobject, Bogus_Field__c: 'nope')
       end
     end.to raise_error(Restforce::ResponseError)
 
     count = client.query(
       "SELECT COUNT(Id) c FROM #{sobject} " \
-      "WHERE Name LIKE 'Restforce smoke #{SmokeHelper.nonce}%'"
+      "WHERE #{SmokeHelper.label_field} LIKE 'Restforce smoke #{SmokeHelper.nonce}%'"
     ).first['c']
 
     expect(count).to be(0)

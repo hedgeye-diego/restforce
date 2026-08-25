@@ -11,11 +11,21 @@ require_relative 'smoke_helper'
 describe 'url encoding', :smoke do
   let(:client)   { SmokeHelper.client }
   let(:sobject)  { SmokeHelper.sobject }
-  let(:ext_field) { SmokeHelper.external_id_field }
+  let(:ext_field) { SmokeHelper.external_id_text_field }
 
   before do
-    skip("#{sobject} has no External ID field - see spec/smoke/README.md") unless
-      ext_field
+    unless ext_field
+      typed = SmokeHelper.external_id_field
+      skip(
+        if typed
+          "#{sobject}.#{typed} is an external id but is typed, so it cannot " \
+            "hold a value with a space or a slash in it. This spec needs a " \
+            "Text one - see spec/smoke/README.md"
+        else
+          "#{sobject} has no External ID field - see spec/smoke/README.md"
+        end
+      )
+    end
   end
 
   # Space, slash and '@' each break a url in a different way.
@@ -24,7 +34,7 @@ describe 'url encoding', :smoke do
   it 'round trips an external id holding characters that would break the url' do
     created = client.upsert!(sobject, ext_field,
                              ext_field => hostile_value,
-                             Name: "Restforce smoke #{SmokeHelper.nonce}")
+                             **SmokeHelper.attributes)
     @created << [sobject, created]
 
     found = client.find(sobject, hostile_value, ext_field)
@@ -36,20 +46,20 @@ describe 'url encoding', :smoke do
   it 'creates exactly one record, not one per encoding interpretation' do
     created = client.upsert!(sobject, ext_field,
                              ext_field => hostile_value,
-                             Name: "Restforce smoke #{SmokeHelper.nonce}")
+                             **SmokeHelper.attributes)
     @created << [sobject, created]
 
     # The 2018 bug's signature: the space made Salesforce see a different key,
     # so a second upsert created a second record instead of updating the first.
     again = client.upsert!(sobject, ext_field,
                            ext_field => hostile_value,
-                           Name: "Restforce smoke #{SmokeHelper.nonce} again")
+                           **SmokeHelper.attributes(' again'))
 
     expect(again).to(satisfy { |result| result == true || result == created })
 
     count = client.query(
       "SELECT COUNT(Id) c FROM #{sobject} " \
-      "WHERE Name LIKE 'Restforce smoke #{SmokeHelper.nonce}%'"
+      "WHERE #{SmokeHelper.label_field} LIKE 'Restforce smoke #{SmokeHelper.nonce}%'"
     ).first['c']
 
     expect(count).to be(1)
@@ -58,7 +68,7 @@ describe 'url encoding', :smoke do
   it 'reaches the same record through a composite subrequest' do
     created = client.upsert!(sobject, ext_field,
                              ext_field => hostile_value,
-                             Name: "Restforce smoke #{SmokeHelper.nonce}")
+                             **SmokeHelper.attributes)
     @created << [sobject, created]
 
     results = client.composite! do |subrequest|

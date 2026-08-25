@@ -64,17 +64,80 @@ module SmokeHelper
     options
   end
 
+  def describe_fields
+    @describe_fields ||= client.describe(sobject)['fields']
+  end
+
   # Internal: An external id field on the sobject under test, discovered from
   # its describe rather than hardcoded, since which field exists differs from
   # org to org. Returns nil when the org has none.
   def external_id_field
     return @external_id_field if defined?(@external_id_field)
 
-    @external_id_field =
-      client.describe(sobject)['fields'].
+    @external_id_field = external_id_candidates.first&.fetch('name')
+  end
+
+  # Internal: An external id field that will accept an arbitrary string.
+  #
+  # A typed field validates its contents, so Contact.Email - which is idLookup
+  # in most orgs - rejects a value holding a space or a slash before the url
+  # encoding it is meant to exercise is ever reached. Only a plain text field
+  # can carry one.
+  #
+  # Returns the String field name, or nil.
+  def external_id_text_field
+    return @external_id_text_field if defined?(@external_id_text_field)
+
+    @external_id_text_field =
+      external_id_candidates.find { |field| field['type'] == 'string' }&.fetch('name')
+  end
+
+  def external_id_candidates
+    describe_fields.
       reject { |field| field['name'] == 'Id' }.
-      find { |field| field['externalId'] || field['idLookup'] }&.
-      fetch('name')
+      select { |field| field['externalId'] || field['idLookup'] }
+  end
+
+  # Internal: The fields this object insists on at create time, read off its
+  # describe rather than assumed - Account wants Name, Contact wants LastName,
+  # and Name on Contact is a read only formula.
+  #
+  # Returns an Array of String field names.
+  def required_text_fields
+    @required_text_fields ||= begin
+      required = describe_fields.select do |field|
+        field['createable'] && !field['nillable'] &&
+          !field['defaultedOnCreate'] && field['type'] == 'string'
+      end
+
+      required.map { |field| field['name'] }
+    end
+  end
+
+  # Internal: The field a record's label lands in, used by the count queries.
+  def label_field
+    required_text_fields.first || 'Name'
+  end
+
+  # Internal: Minimal attributes for creating a record of the object under
+  # test, labelled with this example's nonce.
+  #
+  # Orgs often carry validation rules that describe cannot report - a required
+  # FirstName on Contact, say - so SF_EXTRA_FIELDS takes a comma separated list
+  # of Field=Value pairs to satisfy them.
+  #
+  # Returns a Hash.
+  def attributes(suffix = '')
+    attrs = required_text_fields.to_h do |field|
+      [field.to_sym, "Restforce smoke #{nonce}#{suffix}"]
+    end
+
+    ENV.fetch('SF_EXTRA_FIELDS', '').split(',').each do |pair|
+      key, value = pair.split('=', 2)
+      attrs[key.strip.to_sym] = value.to_s.strip unless key.to_s.strip.empty?
+    end
+
+    attrs
   end
 
   # Internal: A value unique to the example being run. Per example rather than

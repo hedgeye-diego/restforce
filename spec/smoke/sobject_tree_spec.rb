@@ -13,7 +13,7 @@ describe 'sObject Tree API', :smoke do
 
   it 'creates a parent and its children in one call' do
     result = client.composite_tree(root) do |accounts|
-      accounts.add(:acc1, Name: "Restforce smoke #{SmokeHelper.nonce}")
+      accounts.add(:acc1, **SmokeHelper.attributes)
       accounts.embed(child, 'Contact') do |contacts|
         # FirstName is set because orgs commonly carry a validation rule
         # requiring it, and a smoke spec should exercise the API rather than
@@ -34,7 +34,7 @@ describe 'sObject Tree API', :smoke do
 
   it 'maps every reference id in the response' do
     result = client.composite_tree(root) do |accounts|
-      accounts.add(:acc1, Name: "Restforce smoke #{SmokeHelper.nonce}")
+      accounts.add(:acc1, **SmokeHelper.attributes)
     end
 
     @created << [root, result.results.first.id]
@@ -49,14 +49,14 @@ describe 'sObject Tree API', :smoke do
   it 'creates nothing at all when one record is rejected' do
     expect do
       client.composite_tree(root) do |accounts|
-        accounts.add(:acc1, Name: "Restforce smoke #{SmokeHelper.nonce}")
+        accounts.add(:acc1, **SmokeHelper.attributes)
         accounts.add(:acc2, Bogus_Field__c: 'nope')
       end
     end.to raise_error(Restforce::ResponseError)
 
     count = client.query(
       "SELECT COUNT(Id) c FROM #{root} " \
-      "WHERE Name LIKE 'Restforce smoke #{SmokeHelper.nonce}%'"
+      "WHERE #{SmokeHelper.label_field} LIKE 'Restforce smoke #{SmokeHelper.nonce}%'"
     ).first['c']
 
     expect(count).to be(0)

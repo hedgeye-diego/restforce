@@ -8,7 +8,7 @@ describe 'Composite API', :smoke do
 
   it 'creates a record and reads it back in one call' do
     results = client.composite! do |subrequest|
-      subrequest.create(sobject, 'made', Name: "Restforce smoke #{SmokeHelper.nonce}")
+      subrequest.create(sobject, 'made', **SmokeHelper.attributes)
       subrequest.find(sobject, 'read', '@{made.id}')
     end
 
@@ -20,15 +20,17 @@ describe 'Composite API', :smoke do
 
   it 'resolves a reference id between subrequests' do
     results = client.composite! do |subrequest|
-      subrequest.create(sobject, 'made', Name: "Restforce smoke #{SmokeHelper.nonce}")
+      subrequest.create(sobject, 'made', **SmokeHelper.attributes)
       subrequest.update(sobject, 'renamed',
-                        Id: '@{made.id}', Name: "Restforce renamed #{SmokeHelper.nonce}")
+                        Id: '@{made.id}',
+                        SmokeHelper.label_field.to_sym =>
+                          "Restforce renamed #{SmokeHelper.nonce}")
     end
 
     created = results.first['body']['id']
     @created << [sobject, created]
 
-    expect(client.find(sobject, created).Name).
+    expect(client.find(sobject, created)[SmokeHelper.label_field]).
       to eq("Restforce renamed #{SmokeHelper.nonce}")
   end
 
